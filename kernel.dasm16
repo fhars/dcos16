@@ -1,9 +1,9 @@
          SET A, 0
 :initloop
-	 SET [status + A], 0
-	 ADD A, 1
-	 IFG 176, A
-	 SET PC, initloop
+         SET [status + A], 0
+         ADD A, 1
+         IFG 176, A
+         SET PC, initloop
          ;start the first process
          SET A, init
          SET B, 0
@@ -79,21 +79,21 @@
 
          ; mode is daemon, do not remember PPID, A is 0
          IFN A, 0
-	 ADD PC, 2
-	 SET B, 0
-	 SET PC, POP
+         ADD PC, 2
+         SET B, 0
+         SET PC, POP
 
-	 set C, [tmp_C]
+         set C, [tmp_C]
 
          ; remember the PPID
          BOR [status + B], C
 
          ; if the call is asynchronous, set A to the PID
-	 ; and return
+         ; and return
          IFN A, 1
-	 ADD PC, 3
-	 SET A, B
-	 SET B, 0
+         ADD PC, 3
+         SET A, B
+         SET B, 0
          SET PC, POP
 
          ; else, set the sync bit and put the caller to sleep
