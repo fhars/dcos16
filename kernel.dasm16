@@ -1,0 +1,153 @@
+         ;start the first process
+         SET A, init
+         SET B, 0
+         JSR fork
+         JSR yield
+
+:fork
+         SET [tmp_PC], A
+         SET [tmp_B], B
+         SET [tmp_C], C
+         SET C, [curr_proc]
+         SET B, C
+:next_free
+         ADD B, 1
+         AND B, 0xF
+         IFE B, C
+         SET PC, fork_error
+         SET A, [status + B]
+         AND A, 0x8000
+         IFE A, 0x8000
+         SET PC, next_free
+
+         ; now B contains the number of the next free slot
+
+         ; store the PPID in tmp_C
+         SET [tmp_C], C
+
+         ; mark the process slot as running and initialize
+         ; the register file
+         SET [status + B], 0xC000
+         SET A, B
+         MUL A, 10
+
+         ; next instruction is the value passed in
+         SET [save_PC + A], [tmp_PC]
+
+         ; SP points one over the top of the allocated page
+         SET C, B
+         ADD C, 1
+         MUL C, 0x100
+         ADD C, 0xF000
+         SET [save_SP + A], C
+
+         ; registers XYZIJ are shared with the caller
+         SET [save_A + A], 0
+         SET [save_B + A], 0
+         SET [save_C + A], 0
+         ; here we are wasting a stack frame of the calling process,
+         ; Workarounds are about a much code as inlining the JSR,
+         ; TODO: decide what is best
+         JSR save_xyzij
+
+         ; finally chek the run mode
+         SET A, [tmp_B]
+
+         ; mode is daemon, do not remember PPID
+         IFE A, 0
+         SET PC, POP
+
+         ; remember the PPID
+         BOR [status + B], C
+
+         ; if the call is asynchronous, we are done
+         IFE A, 1
+         SET PC, POP
+
+         ; else, set the sync bit and put the caller to sleep
+         BOR [status + B], 0x10
+         AND [status + C], 0xBFFF
+         SET PC, POP
+
+:fork_error
+         SET A, -1
+         SET B, -1
+         SET PC, POP
+
+:yield
+         SET [tmp_A], A
+         SET A, [curr_proc]
+         ; save register values of the yielding process
+         MUL A, 10
+         SET [save_A + A], [tmp_A]
+         SET [save_B + A], B
+         SET [save_C + A], C
+         SET [save_PC + A], POP
+         SET [save_SP + A], SP
+
+         SET SP, 0xF000
+         JSR save_xyzij
+
+         ; seach for the next running process
+         SET A, [curr_proc]
+:next_proc
+         ADD A, 1
+         AND A, 0xF
+         SET B, [status + A]
+         AND B, 0xC000
+         IFN B, 0xC000
+         SET PC, next_proc
+
+:run_next_proc
+         SET [curr_proc], A
+         MUL A, 10
+
+         ; restore register values of the next process
+         SET [tmp_A], [save_A + A]
+         SET B, [save_B + A]
+         SET C, [save_C + A]
+         SET X, [save_X + A]
+         SET Y, [save_Y + A]
+         SET Z, [save_Z + A]
+         SET I, [save_I + A]
+         SET J, [save_J + A]
+         SET [tmp_PC], [save_PC + A]
+         SET SP, [save_SP + A]
+
+         SET A, [tmp_A]
+         SET PC, [tmp_PC]
+
+:save_xyzij
+         SET [save_X + A], X
+         SET [save_Y + A], Y
+         SET [save_Z + A], Z
+         SET [save_I + A], I
+         SET [save_J + A], J
+         set PC, POP
+
+; persistend state of the scheduler
+:curr_proc DATA 0
+
+; temporary storage of the scheduler
+:tmp_A   DATA 0
+:tmp_B   DATA 0
+:tmp_C   DATA 0
+:tmp_PC  DATA 0
+
+; Persistent register files of the processes
+:status  RESERVE 16
+:save_A  DATA 0
+:save_B  DATA 0
+:save_C  DATA 0
+:save_X  DATA 0
+:save_Y  DATA 0
+:save_Z  DATA 0
+:save_I  DATA 0
+:save_J  DATA 0
+:save_PC DATA 0
+:save_SP DATA 0
+         RESERVE 150
+
+:init  ADD A, 1
+       JSR yield
+       SET PC, init
