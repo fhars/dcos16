@@ -1,3 +1,9 @@
+         SET A, 0
+:initloop
+	 SET [status + A], 0
+	 ADD A, 1
+	 IFG 176, A
+	 SET PC, initloop
          ;start the first process
          SET A, init
          SET B, 0
