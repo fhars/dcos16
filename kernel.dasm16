@@ -106,6 +106,48 @@
          SET B, -1
          SET PC, POP
 
+; exit terminates a running process, optionally remembering
+; the value of the A register for the parent process.
+;
+;
+; The routine can safely ignore SP (alternatively, it
+; doesn't matter if it is called with JSR exit or SET PC, exit),
+; since it doesn't return and this processes stack is discarded.
+;
+; input A : the value to return to the parent proces
+:exit
+         SET X, A
+         SET A, [curr_proc]
+         SET C, [status + A]
+         AND C, 0xF
+
+         ; A daemon process just terminates
+         IFN C, 0
+         SET PC, exit_child
+         SET [status + A], 0
+         SET PC, next_proc
+
+:exit_child
+         IFB [status + A], 0x10
+         SET PC, exit_sync
+
+         ; mark the process a zombie and remember A
+         AND [status + A], 0xBFFF
+         BOR [status + A], 0x2000
+         SET [save_A + A], X
+         SET PC, next_proc
+
+:exit_sync
+         ; mark slot as free
+         SET [status + A], 0
+         ; mark parent as running
+         BOR [status + C], 0x8000
+         ; set return value for parent
+         MUL C, 10
+         SET [save_A + C], X
+         SET [save_B + C], 0
+         SET PC, next_proc
+
 :yield
          SET [tmp_A], A
          SET A, [curr_proc]
@@ -167,7 +209,20 @@
 :tmp_PC  DATA 0
 
 ; Persistent register files of the processes
+
+; A status word for each process
+;
+;  Bit
+;  0 - 3  PID of the parent process if not a daemon process
+;  4      1 if this is a sync child
+;
+;  13     1 if this a a zombie process, 0 if waiting
+;  14     1 if this process is running, 0 if waiting
+;  15     1 if this slot is used, 0 if free
+;
 :status  RESERVE 16
+
+; A register file for each of the processes
 :save_A  DATA 0
 :save_B  DATA 0
 :save_C  DATA 0
@@ -182,4 +237,6 @@
 
 :init  ADD A, 1
        JSR yield
+       IFG A, 100
+       JSR exit
        SET PC, init
