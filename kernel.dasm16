@@ -4,10 +4,28 @@
          JSR fork
          JSR yield
 
+; fork starts a new process (up to a limit of 16 processes total)
+;
+; input A: the start address of the new process
+; input B: the run mode
+;           0: daemon mode, the new process is independent from
+;              the calling process
+;           1: child mode, the calling process can query the
+;              return value of the child one it has exited
+;           2: sync mode, the parent waits for the child to
+;              terminate
+; return A:
+;     0 on a successful daemon fork
+;     child PID on a successful child fork
+;     return value after a sync child has finished
+;     -1 if no free slot remains
+; return B:
+;     0 on a successful fork
+;     -1 if no free slot remains (to distingush an error
+;        from a sync return of -1)
 :fork
          SET [tmp_PC], A
          SET [tmp_B], B
-         SET [tmp_C], C
          SET C, [curr_proc]
          SET B, C
 :next_free
@@ -53,15 +71,23 @@
          ; finally chek the run mode
          SET A, [tmp_B]
 
-         ; mode is daemon, do not remember PPID
-         IFE A, 0
-         SET PC, POP
+         ; mode is daemon, do not remember PPID, A is 0
+         IFN A, 0
+	 ADD PC, 2
+	 SET B, 0
+	 SET PC, POP
+
+	 set C, [tmp_C]
 
          ; remember the PPID
          BOR [status + B], C
 
-         ; if the call is asynchronous, we are done
-         IFE A, 1
+         ; if the call is asynchronous, set A to the PID
+	 ; and return
+         IFN A, 1
+	 ADD PC, 3
+	 SET A, B
+	 SET B, 0
          SET PC, POP
 
          ; else, set the sync bit and put the caller to sleep
@@ -126,7 +152,7 @@
          set PC, POP
 
 ; persistend state of the scheduler
-:curr_proc DATA 0
+:curr_proc DATA 15
 
 ; temporary storage of the scheduler
 :tmp_A   DATA 0
