@@ -87,6 +87,7 @@
 
          ; remember the PPID
          BOR [status + B], C
+         BOR [status + B], 0x10
 
          ; if the call is asynchronous, set A to the PID
          ; and return
@@ -97,14 +98,61 @@
          SET PC, POP
 
          ; else, set the sync bit and put the caller to sleep
-         BOR [status + B], 0x10
+         BOR [status + B], 0x20
          AND [status + C], 0xBFFF
-         SET PC, POP
+         SET PC, yield
 
 :fork_error
          SET A, -1
          SET B, -1
          SET PC, POP
+
+; wait for the result of a child process
+;
+; input A: the PID of the process to wait for
+; input B: wait mode, 0: blocking, 1: non-blocking
+; output A / B:
+;   -1 / -1 : PID is not a child of this process
+;   0  / -1 : child has not finished (non-blocking)
+;  res /  0 : child has finished
+:wait
+        IFB A, 0xFFF0
+        SET PC, fork_error
+        SET [tmp_A], A
+        SET [tmp_B], B
+        SET A, [status + A]
+        SET B, A
+        AND A, 0xF
+        IFN A, [curr_proc]
+        SET PC, fork_error
+
+        SET A, [tmp_A]
+
+        IFB B, 0x2000
+        SET PC, wait_exited
+
+        IFE [tmp_B], 0
+        SET PC, wait_blocked
+
+        ; waiting non-blocking on a runnig process
+        SET A, 0
+        SET B, -1
+        SET PC, POP
+
+; if we want a blocking wait on a runnig process,
+; treat is as if it had been a sync fork
+:wait_blocked
+        BOR [status + A], 0x20
+        SET A, [curr_proc]
+        AND [status + A], 0xBFFF
+        SET PC, yield
+
+:wait_exited
+        SET [status + A], 0
+        MUL A, 10
+        SET A, [save_A + A]
+        SET B, 0
+        SET PC, POP
 
 ; exit terminates a running process, optionally remembering
 ; the value of the A register for the parent process.
@@ -119,16 +167,16 @@
          SET X, A
          SET A, [curr_proc]
          SET C, [status + A]
-         AND C, 0xF
 
          ; A daemon process just terminates
-         IFN C, 0
+         IFB C, 0x10
          SET PC, exit_child
          SET [status + A], 0
          SET PC, next_proc
 
 :exit_child
-         IFB [status + A], 0x10
+         AND C, 0xF
+         IFB [status + A], 0x20
          SET PC, exit_sync
 
          ; mark the process a zombie and remember A
@@ -141,7 +189,7 @@
          ; mark slot as free
          SET [status + A], 0
          ; mark parent as running
-         BOR [status + C], 0x8000
+         BOR [status + C], 0x4000
          ; set return value for parent
          MUL C, 10
          SET [save_A + C], X
@@ -214,7 +262,8 @@
 ;
 ;  Bit
 ;  0 - 3  PID of the parent process if not a daemon process
-;  4      1 if this is a sync child
+;  4      1 if this is a child process
+;  5      1 if this is a sync child
 ;
 ;  13     1 if this a a zombie process, 0 if waiting
 ;  14     1 if this process is running, 0 if waiting
@@ -235,8 +284,51 @@
 :save_SP DATA 0
          RESERVE 150
 
-:init  ADD A, 1
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;;  EXAMPLE CODE
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+:pid   DATA 0
+:init  SET X, 1
+:loop1 set Y, 0
+       SET A, count4
+       SET B, 1
+       JSR fork
+       SET [pid], A
+       SET Z, A
+
+:loop2 SET A, [pid]
+       SET B, 1
+       ADD Y, 1
        JSR yield
-       IFG A, 100
-       JSR exit
-       SET PC, init
+       JSR wait
+       IFN B,0
+       SET PC, loop2
+       ADD X, 1
+       IFG 4, X
+       SET PC, loop1
+
+
+       SET [CC], 0
+       SET X, 0
+       SET Y, 0
+       SET A, count4
+       SET B, 2
+       JSR fork
+       SET X,1
+:crash SET PC, crash
+
+:count4 SET I, 0
+:loopc  JSR yield
+        ADD I, 1
+	SET A, I
+	ADD [CC], 1
+	SET J, [CC]
+        IFG I, 3
+        JSR exit
+        SET PC, loopc
+:cc DATA 0
