@@ -182,6 +182,7 @@
          ; mark the process a zombie and remember A
          AND [status + A], 0xBFFF
          BOR [status + A], 0x2000
+	 MUL A, 10
          SET [save_A + A], X
          SET PC, next_proc
 
@@ -320,6 +321,22 @@
        SET B, 2
        JSR fork
        SET X,1
+
+       SET A, fact
+       SET B, 1
+       SET X, 6
+       JSR fork
+       SET [pid], A
+       SET Z, A
+
+:loop3 SET A, [pid]
+       SET B, 1
+       ADD Y, 1
+       JSR yield
+       JSR wait
+       IFN B,0
+       SET PC, loop3
+
 :crash SET PC, crash
 
 :count4 SET I, 0
@@ -331,4 +348,18 @@
         IFG I, 3
         JSR exit
         SET PC, loopc
+
+:fact
+	SET Z, 1
+	JSR fact_rec
+	SET A, Z
+	JSR exit
+:fact_rec
+	JSR yield
+        MUL Z, X
+ 	ADD X, -1
+	IFN X, 0
+	JSR fact_rec
+	SET PC, POP
 :cc DATA 0
+
