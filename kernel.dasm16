@@ -54,6 +54,8 @@
 :fork
          SET [tmp_PC], A
          SET [tmp_B], B
+         SET [tmp_SP], SP
+         SET SP, 0xF000
          SET C, [curr_proc]
          SET B, C
 :next_free
@@ -91,14 +93,22 @@
          SET [save_A + A], 0
          SET [save_B + A], 0
          SET [save_C + A], 0
-         ; here we are wasting a stack frame of the calling process,
-         ; Workarounds are about a much code as inlining the JSR,
-         ; TODO: decide what is best
          JSR save_xyzij
 
+         ;  clear the status cell
+         SET PUSH, B
+         SET A, 0
+         JSR i2hex_cell
+
+         SET A, PEEK
+         SET C, 0x07
+         JSR set_cell_color
+
+         SET B, POP
          ; finally chek the run mode
          SET A, [tmp_B]
 
+         SET SP, [tmp_SP]
          ; mode is daemon, do not remember PPID, A is 0
          IFN A, 0
          ADD PC, 2
@@ -171,6 +181,10 @@
 
 :wait_exited
         SET [status + A], 0
+        SET PUSH, A
+        SET C, 0
+        JSR set_cell_color
+        SET A, POP
         MUL A, 10
         SET A, [save_A + A]
         SET B, 0
@@ -194,6 +208,9 @@
          IFB C, 0x10
          SET PC, exit_child
          SET [status + A], 0
+         SET C, 0x00
+         JSR set_cell_color
+         SET A, [curr_proc]
          SET PC, next_proc
 
 :exit_child
@@ -217,6 +234,9 @@
          MUL C, 10
          SET [save_A + C], X
          SET [save_B + C], 0
+         SET C, 0x00
+         JSR set_cell_color
+         SET A, [curr_proc]
          SET PC, next_proc
 
 :yield
@@ -232,6 +252,10 @@
 
          SET SP, 0xF000
          JSR save_xyzij
+
+         SET A, [tmp_A]
+         SET B, [curr_proc]
+         JSR i2hex_cell
 
          ; seach for the next running process
          SET A, [curr_proc]
@@ -278,7 +302,7 @@
 :tmp_B   DATA 0
 :tmp_C   DATA 0
 :tmp_PC  DATA 0
-
+:tmp_SP  DATA 0
 ; Persistent register files of the processes
 
 ; A status word for each process
@@ -307,6 +331,79 @@
 :save_SP DATA 0
          RESERVE 150
 
+; Temporary storage for display helper functions
+:dtm_A  DATA 0
+:dtm_C  DATA 0
+:dtm_X  DATA 0
+
+; print the hex representaion of the number in A in the
+; cell for the slot number in B
+
+:i2hex_cell
+        AND B, 0xF
+        MUL B, 4
+        ADD B, 0x8000
+
+; convert the value in register A into a hex string stored at the
+; address pointed to by register B
+;
+; The function leaves the color information intact
+:i2hex
+        SET [dtm_A], A
+        SET [dtm_X], X
+        SET [dtm_C], C
+        SET C, 16
+:i2hexl SET A, [dtm_A]
+        SUB C, 4
+        SHR A, C
+        AND A, 0xF
+        IFG A, 9
+        ADD A, 0x7
+        ADD A, 0x30
+        SET X, [B]
+        AND X, 0xFF00
+        BOR X, A
+        SET [B], X
+        ADD B, 1
+        IFN C, 0
+        SET PC, i2hexl
+        SET X, [dtm_X]
+        SET C, [dtm_C]
+        SET PC, POP
+
+; set color for a processes status cell
+;
+; input A: the process slot number
+; input C: the color
+
+:set_cell_color
+        AND A, 0xF
+        MUL A, 4
+        ADD A, 0x8000
+        SET B, 4
+
+; set the color for an array of screen cells
+;
+; input A: the address of the start cells
+; input B: the number of cells
+; input C: the color (in the lower 8 bits), highlight bits are ignored
+
+:set_color
+        SET [dtm_A], X
+        AND C, 0x77
+        SHL C, 8
+:set_color_l
+        SET X, [A]
+        AND X, 0x88FF ; keep characters and highlight bits
+        BOR X, C
+        SET [A], X
+        SUB B, 1
+        ADD A, 1
+        IFN B, 0
+        SET PC, set_color_l
+        SET X, [dtm_A]
+        SET PC, POP
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -314,8 +411,11 @@
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-:pid   DATA 0
+:foo    DATA 0xFFFF
+:db     DATA 0
+:foo2   DATA 0xFFFF
+:pid    DATA 0
+:pid2   DATA 0
 :init  SET X, 1
 :loop1 set Y, 0
        SET A, count4
@@ -325,13 +425,17 @@
        SET Z, A
 
 :loop2 SET A, [pid]
+       ADD [db], 1
        SET B, 1
        ADD Y, 1
+       ADD [db], 0x10
        JSR yield
+       ADD [db], 0x10
        JSR wait
        IFN B,0
        SET PC, loop2
        ADD X, 1
+       ADD [db], 0x100
        IFG 4, X
        SET PC, loop1
 
@@ -344,12 +448,19 @@
        JSR fork
        SET X,1
 
+       SET [db], 0xC000
+
        SET A, fact
        SET B, 1
        SET X, 6
        JSR fork
        SET [pid], A
+       SET A, fact
        SET Z, A
+       SET B, 1
+       SET X, 8
+       JSR fork
+       SET [pid2], A
 
 :loop3 SET A, [pid]
        SET B, 1
@@ -359,12 +470,21 @@
        IFN B,0
        SET PC, loop3
 
+       SET Y, 0
+:loop4 SET A, [pid2]
+       SET B, 1
+       ADD Y, 1
+       JSR yield
+       JSR wait
+       IFN B,0
+       SET PC, loop4
+
 :crash SET PC, crash
 
 :count4 SET I, 0
-:loopc  JSR yield
+:loopc  SET A, I
+        JSR yield
         ADD I, 1
-        SET A, I
         ADD [CC], 1
         SET J, [CC]
         IFG I, 3
@@ -377,6 +497,7 @@
         SET A, Z
         JSR exit
 :fact_rec
+        SET A, Z
         JSR yield
         MUL Z, X
         ADD X, -1
