@@ -101,7 +101,7 @@ The colors are three bit rgb values:
 <tr><td>101</td><td>0x5</td><td>Magenta</td></tr>
 <tr><td>110</td><td>0x6</td><td>Yellowish</td></tr>
 <tr><td>111</td><td>0x7</td><td>White</td></tr>
-</table
+</table>
 
 (yellowish can be brown or orange or olive or whatever)
 
