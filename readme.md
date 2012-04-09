@@ -1,7 +1,7 @@
 dcos16 - A simple cooperative multitasking kernel for DCPU16
 ============================================================
 
-The dcos16 kernel for notchs DCPU16 processor manages up to 16
+The dcos16 kernel for Notch's DCPU16 processor manages up to 16
 cooperative processes with a very simple round robin scheduler.  Every
 process is reponsible for not writing over the other processes memory
 and to call
