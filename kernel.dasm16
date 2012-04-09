@@ -2,8 +2,9 @@
 :initloop
          SET [status + A], 0
          ADD A, 1
-         IFG 176, A
+         IFG 16, A
          SET PC, initloop
+         SET [curr_proc], 15
          ;start the first process
          SET A, init
          SET B, 0
