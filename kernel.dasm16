@@ -204,7 +204,7 @@
          ; mark the process a zombie and remember A
          AND [status + A], 0xBFFF
          BOR [status + A], 0x2000
-	 MUL A, 10
+         MUL A, 10
          SET [save_A + A], X
          SET PC, next_proc
 
@@ -364,24 +364,23 @@
 :count4 SET I, 0
 :loopc  JSR yield
         ADD I, 1
-	SET A, I
-	ADD [CC], 1
-	SET J, [CC]
+        SET A, I
+        ADD [CC], 1
+        SET J, [CC]
         IFG I, 3
         JSR exit
         SET PC, loopc
 
 :fact
-	SET Z, 1
-	JSR fact_rec
-	SET A, Z
-	JSR exit
+        SET Z, 1
+        JSR fact_rec
+        SET A, Z
+        JSR exit
 :fact_rec
-	JSR yield
+        JSR yield
         MUL Z, X
- 	ADD X, -1
-	IFN X, 0
-	JSR fact_rec
-	SET PC, POP
+        ADD X, -1
+        IFN X, 0
+        JSR fact_rec
+        SET PC, POP
 :cc DATA 0
-
