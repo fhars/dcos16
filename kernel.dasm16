@@ -32,6 +32,14 @@
          JSR fork
          JSR yield
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;;  SCHEDULER CORE
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 ; fork starts a new process (up to a limit of 16 processes total)
 ;
 ; input A: the start address of the new process
@@ -331,6 +339,28 @@
 :save_SP DATA 0
          RESERVE 150
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;;  DISPLAY FUNCTIONS
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+; set the colors for this processes status cell
+;
+; input A: the foreground and background colors (0 to 7) in the
+; lowest two nibbles of register A
+; clobbers: A, B, C
+:status_color
+        SET C, A
+        SET A, [curr_proc]
+        SET PC, set_cell_color
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Internal display logic
+
 ; Temporary storage for display helper functions
 :dtm_A  DATA 0
 :dtm_C  DATA 0
@@ -407,16 +437,19 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-;;  EXAMPLE CODE
+;;  EXAMPLE AND DEBUG CODE
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 :foo    DATA 0xFFFF
 :db     DATA 0
 :foo2   DATA 0xFFFF
 :pid    DATA 0
 :pid2   DATA 0
-:init  SET X, 1
+:init   SET X, 1
+        SET A, 0x06
+        JSR status_color
 :loop1 set Y, 0
        SET A, count4
        SET B, 1
@@ -455,7 +488,7 @@
        SET X, 6
        JSR fork
        SET [pid], A
-       SET A, fact
+       SET A, fact_col
        SET Z, A
        SET B, 1
        SET X, 8
@@ -491,6 +524,9 @@
         JSR exit
         SET PC, loopc
 
+:fact_col
+        SET A, 0x34
+        JSR status_color
 :fact
         SET Z, 1
         JSR fact_rec
