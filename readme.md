@@ -17,6 +17,9 @@ overflowing it.
 
 The code has been tested in dcpustudio.
 
+The license is MIT as that is the first well known open source license I
+found that did in fact exist in 1988 (GPL v1 is 1989).
+
 The kernel provides the following calls. All calls that return
 preserve registers X, Y, Z, I, J, yield does addtionaly keep A, B, C
 and SP. No assumptions should be made about O.
