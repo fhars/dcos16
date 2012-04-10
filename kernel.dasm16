@@ -139,8 +139,11 @@
          SET PC, POP
 
          ; else, set the sync bit and put the caller to sleep
+         SET A, C
+:_pc_sleep_waiting
          BOR [_pc_status + B], 0x20
-         AND [_pc_status + C], 0xBFFF
+         AND [_pc_status + A], 0xBFFF
+         BOR [_pc_status + A], 0x1000
          SET PC, yield
 
 :_pc_fork_error
@@ -183,10 +186,9 @@
 ; if we want a blocking wait on a runnig process,
 ; treat is as if it had been a sync fork
 :_pc_waitblocked
-        BOR [_pc_status + A], 0x20
+        SET B, A
         SET A, [_pc_curr_proc]
-        AND [_pc_status + A], 0xBFFF
-        SET PC, yield
+        SET PC, _pc_sleep_waiting
 
 :_pc_waitexited
         SET [_pc_status + A], 0
@@ -224,7 +226,7 @@
 
 :_pc_exit_child
          AND C, 0xF
-         IFB [_pc_status + A], 0x20
+         IFB [_pc_status + C], 0x1000 ; parent sleeps waiting
          SET PC, _pc_exit_sync
 
          ; mark the process a zombie and remember A
@@ -238,6 +240,7 @@
          ; mark slot as free
          SET [_pc_status + A], 0
          ; mark parent as running
+         AND [_pc_status + C], 0xEFFF
          BOR [_pc_status + C], 0x4000
          ; set return value for parent
          MUL C, 10
