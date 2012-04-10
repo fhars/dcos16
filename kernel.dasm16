@@ -20,12 +20,12 @@
 ; WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
          SET A, 0
-:initloop
-         SET [status + A], 0
+:_pc_initloop
+         SET [_pc_status + A], 0
          ADD A, 1
          IFG 16, A
-         SET PC, initloop
-         SET [curr_proc], 15
+         SET PC, _pc_initloop
+         SET [_pc_curr_proc], 15
          ;start the first process
          SET A, init
          SET B, 0
@@ -60,35 +60,35 @@
 ;     -1 if no free slot remains (to distingush an error
 ;        from a sync return of -1)
 :fork
-         SET [tmp_PC], A
-         SET [tmp_B], B
-         SET [tmp_SP], SP
+         SET [_pc_tmp_PC], A
+         SET [_pc_tmp_B], B
+         SET [_pc_tmp_SP], SP
          SET SP, 0xF000
-         SET C, [curr_proc]
+         SET C, [_pc_curr_proc]
          SET B, C
-:next_free
+:_pc_next_free
          ADD B, 1
          AND B, 0xF
          IFE B, C
-         SET PC, fork_error
-         SET A, [status + B]
+         SET PC, _pc_fork_error
+         SET A, [_pc_status + B]
          AND A, 0x8000
          IFE A, 0x8000
-         SET PC, next_free
+         SET PC, _pc_next_free
 
          ; now B contains the number of the next free slot
 
-         ; store the PPID in tmp_C
-         SET [tmp_C], C
+         ; store the PPID in _pc_tmp_C
+         SET [_pc_tmp_C], C
 
          ; mark the process slot as running and initialize
          ; the register file
-         SET [status + B], 0xC000
+         SET [_pc_status + B], 0xC000
          SET A, B
          MUL A, 10
 
          ; next instruction is the value passed in
-         SET [save_PC + A], [tmp_PC]
+         SET [_pc_save_PC + A], [_pc_tmp_PC]
 
          ; SP points one over the top of the allocated page
          SET C, B
@@ -96,39 +96,39 @@
          MUL C, 0x100
          ADD C, 0xEFFF
          SET [C], exit
-         SET [save_SP + A], C
+         SET [_pc_save_SP + A], C
 
          ; registers XYZIJ are shared with the caller
-         SET [save_A + A], 0
-         SET [save_B + A], 0
-         SET [save_C + A], 0
-         JSR save_xyzij
+         SET [_pc_save_A + A], 0
+         SET [_pc_save_B + A], 0
+         SET [_pc_save_C + A], 0
+         JSR _pc_save_xyzij
 
          ;  clear the status cell
          SET PUSH, B
          SET A, 0
-         JSR i2hex_cell
+         JSR _pc_i2hex_cell
 
          SET A, PEEK
          SET C, 0x07
-         JSR set_cell_color
+         JSR _pc_set_cell_color
 
          SET B, POP
          ; finally chek the run mode
-         SET A, [tmp_B]
+         SET A, [_pc_tmp_B]
 
-         SET SP, [tmp_SP]
+         SET SP, [_pc_tmp_SP]
          ; mode is daemon, do not remember PPID, A is 0
          IFN A, 0
          ADD PC, 2
          SET B, 0
          SET PC, POP
 
-         set C, [tmp_C]
+         set C, [_pc_tmp_C]
 
          ; remember the PPID
-         BOR [status + B], C
-         BOR [status + B], 0x10
+         BOR [_pc_status + B], C
+         BOR [_pc_status + B], 0x10
 
          ; if the call is asynchronous, set A to the PID
          ; and return
@@ -139,11 +139,11 @@
          SET PC, POP
 
          ; else, set the sync bit and put the caller to sleep
-         BOR [status + B], 0x20
-         AND [status + C], 0xBFFF
+         BOR [_pc_status + B], 0x20
+         AND [_pc_status + C], 0xBFFF
          SET PC, yield
 
-:fork_error
+:_pc_fork_error
          SET A, -1
          SET B, -1
          SET PC, POP
@@ -158,22 +158,22 @@
 ;  res /  0 : child has finished
 :wait
         IFB A, 0xFFF0
-        SET PC, fork_error
-        SET [tmp_A], A
-        SET [tmp_B], B
-        SET A, [status + A]
+        SET PC, _pc_fork_error
+        SET [_pc_tmp_A], A
+        SET [_pc_tmp_B], B
+        SET A, [_pc_status + A]
         SET B, A
         AND A, 0xF
-        IFN A, [curr_proc]
-        SET PC, fork_error
+        IFN A, [_pc_curr_proc]
+        SET PC, _pc_fork_error
 
-        SET A, [tmp_A]
+        SET A, [_pc_tmp_A]
 
         IFB B, 0x2000
-        SET PC, wait_exited
+        SET PC, _pc_waitexited
 
-        IFE [tmp_B], 0
-        SET PC, wait_blocked
+        IFE [_pc_tmp_B], 0
+        SET PC, _pc_waitblocked
 
         ; waiting non-blocking on a runnig process
         SET A, 0
@@ -182,20 +182,20 @@
 
 ; if we want a blocking wait on a runnig process,
 ; treat is as if it had been a sync fork
-:wait_blocked
-        BOR [status + A], 0x20
-        SET A, [curr_proc]
-        AND [status + A], 0xBFFF
+:_pc_waitblocked
+        BOR [_pc_status + A], 0x20
+        SET A, [_pc_curr_proc]
+        AND [_pc_status + A], 0xBFFF
         SET PC, yield
 
-:wait_exited
-        SET [status + A], 0
+:_pc_waitexited
+        SET [_pc_status + A], 0
         SET PUSH, A
         SET C, 0
-        JSR set_cell_color
+        JSR _pc_set_cell_color
         SET A, POP
         MUL A, 10
-        SET A, [save_A + A]
+        SET A, [_pc_save_A + A]
         SET B, 0
         SET PC, POP
 
@@ -210,108 +210,108 @@
 ; input A : the value to return to the parent proces
 :exit
          SET X, A
-         SET A, [curr_proc]
-         SET C, [status + A]
+         SET A, [_pc_curr_proc]
+         SET C, [_pc_status + A]
 
          ; A daemon process just terminates
          IFB C, 0x10
-         SET PC, exit_child
-         SET [status + A], 0
+         SET PC, _pc_exit_child
+         SET [_pc_status + A], 0
          SET C, 0x00
-         JSR set_cell_color
-         SET A, [curr_proc]
-         SET PC, next_proc
+         JSR _pc_set_cell_color
+         SET A, [_pc_curr_proc]
+         SET PC, _pc_next_proc
 
-:exit_child
+:_pc_exit_child
          AND C, 0xF
-         IFB [status + A], 0x20
-         SET PC, exit_sync
+         IFB [_pc_status + A], 0x20
+         SET PC, _pc_exit_sync
 
          ; mark the process a zombie and remember A
-         AND [status + A], 0xBFFF
-         BOR [status + A], 0x2000
+         AND [_pc_status + A], 0xBFFF
+         BOR [_pc_status + A], 0x2000
          MUL A, 10
-         SET [save_A + A], X
-         SET PC, next_proc
+         SET [_pc_save_A + A], X
+         SET PC, _pc_next_proc
 
-:exit_sync
+:_pc_exit_sync
          ; mark slot as free
-         SET [status + A], 0
+         SET [_pc_status + A], 0
          ; mark parent as running
-         BOR [status + C], 0x4000
+         BOR [_pc_status + C], 0x4000
          ; set return value for parent
          MUL C, 10
-         SET [save_A + C], X
-         SET [save_B + C], 0
+         SET [_pc_save_A + C], X
+         SET [_pc_save_B + C], 0
          SET C, 0x00
-         JSR set_cell_color
-         SET A, [curr_proc]
-         SET PC, next_proc
+         JSR _pc_set_cell_color
+         SET A, [_pc_curr_proc]
+         SET PC, _pc_next_proc
 
 :yield
-         SET [tmp_A], A
-         SET A, [curr_proc]
+         SET [_pc_tmp_A], A
+         SET A, [_pc_curr_proc]
          ; save register values of the yielding process
          MUL A, 10
-         SET [save_A + A], [tmp_A]
-         SET [save_B + A], B
-         SET [save_C + A], C
-         SET [save_PC + A], POP
-         SET [save_SP + A], SP
+         SET [_pc_save_A + A], [_pc_tmp_A]
+         SET [_pc_save_B + A], B
+         SET [_pc_save_C + A], C
+         SET [_pc_save_PC + A], POP
+         SET [_pc_save_SP + A], SP
 
          SET SP, 0xF000
-         JSR save_xyzij
+         JSR _pc_save_xyzij
 
-         SET A, [tmp_A]
-         SET B, [curr_proc]
-         JSR i2hex_cell
+         SET A, [_pc_tmp_A]
+         SET B, [_pc_curr_proc]
+         JSR _pc_i2hex_cell
 
          ; seach for the next running process
-         SET A, [curr_proc]
-:next_proc
+         SET A, [_pc_curr_proc]
+:_pc_next_proc
          ADD A, 1
          AND A, 0xF
-         SET B, [status + A]
+         SET B, [_pc_status + A]
          AND B, 0xC000
          IFN B, 0xC000
-         SET PC, next_proc
+         SET PC, _pc_next_proc
 
-:run_next_proc
-         SET [curr_proc], A
+:_pc_run_next_proc
+         SET [_pc_curr_proc], A
          MUL A, 10
 
          ; restore register values of the next process
-         SET [tmp_A], [save_A + A]
-         SET B, [save_B + A]
-         SET C, [save_C + A]
-         SET X, [save_X + A]
-         SET Y, [save_Y + A]
-         SET Z, [save_Z + A]
-         SET I, [save_I + A]
-         SET J, [save_J + A]
-         SET [tmp_PC], [save_PC + A]
-         SET SP, [save_SP + A]
+         SET [_pc_tmp_A], [_pc_save_A + A]
+         SET B, [_pc_save_B + A]
+         SET C, [_pc_save_C + A]
+         SET X, [_pc_save_X + A]
+         SET Y, [_pc_save_Y + A]
+         SET Z, [_pc_save_Z + A]
+         SET I, [_pc_save_I + A]
+         SET J, [_pc_save_J + A]
+         SET [_pc_tmp_PC], [_pc_save_PC + A]
+         SET SP, [_pc_save_SP + A]
 
-         SET A, [tmp_A]
-         SET PC, [tmp_PC]
+         SET A, [_pc_tmp_A]
+         SET PC, [_pc_tmp_PC]
 
-:save_xyzij
-         SET [save_X + A], X
-         SET [save_Y + A], Y
-         SET [save_Z + A], Z
-         SET [save_I + A], I
-         SET [save_J + A], J
+:_pc_save_xyzij
+         SET [_pc_save_X + A], X
+         SET [_pc_save_Y + A], Y
+         SET [_pc_save_Z + A], Z
+         SET [_pc_save_I + A], I
+         SET [_pc_save_J + A], J
          set PC, POP
 
 ; persistend state of the scheduler
-:curr_proc DATA 15
+:_pc_curr_proc DATA 15
 
 ; temporary storage of the scheduler
-:tmp_A   DATA 0
-:tmp_B   DATA 0
-:tmp_C   DATA 0
-:tmp_PC  DATA 0
-:tmp_SP  DATA 0
+:_pc_tmp_A   DATA 0
+:_pc_tmp_B   DATA 0
+:_pc_tmp_C   DATA 0
+:_pc_tmp_PC  DATA 0
+:_pc_tmp_SP  DATA 0
 ; Persistent register files of the processes
 
 ; A status word for each process
@@ -321,23 +321,24 @@
 ;  4      1 if this is a child process
 ;  5      1 if this is a sync child
 ;
+;  12     1 if this process is waiting for a child
 ;  13     1 if this a a zombie process, 0 if waiting
 ;  14     1 if this process is running, 0 if waiting
 ;  15     1 if this slot is used, 0 if free
 ;
-:status  RESERVE 16
+:_pc_status  RESERVE 16
 
 ; A register file for each of the processes
-:save_A  DATA 0
-:save_B  DATA 0
-:save_C  DATA 0
-:save_X  DATA 0
-:save_Y  DATA 0
-:save_Z  DATA 0
-:save_I  DATA 0
-:save_J  DATA 0
-:save_PC DATA 0
-:save_SP DATA 0
+:_pc_save_A  DATA 0
+:_pc_save_B  DATA 0
+:_pc_save_C  DATA 0
+:_pc_save_X  DATA 0
+:_pc_save_Y  DATA 0
+:_pc_save_Z  DATA 0
+:_pc_save_I  DATA 0
+:_pc_save_J  DATA 0
+:_pc_save_PC DATA 0
+:_pc_save_SP DATA 0
          RESERVE 150
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -355,22 +356,22 @@
 ; clobbers: A, B, C
 :status_color
         SET C, A
-        SET A, [curr_proc]
-        SET PC, set_cell_color
+        SET A, [_pc_curr_proc]
+        SET PC, _pc_set_cell_color
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Internal display logic
 
 ; Temporary storage for display helper functions
-:dtm_A  DATA 0
-:dtm_C  DATA 0
-:dtm_X  DATA 0
+:_pc_dtm_A  DATA 0
+:_pc_dtm_C  DATA 0
+:_pc_dtm_X  DATA 0
 
 ; print the hex representaion of the number in A in the
 ; cell for the slot number in B
 
-:i2hex_cell
+:_pc_i2hex_cell
         AND B, 0xF
         MUL B, 4
         ADD B, 0x8000
@@ -379,12 +380,12 @@
 ; address pointed to by register B
 ;
 ; The function leaves the color information intact
-:i2hex
-        SET [dtm_A], A
-        SET [dtm_X], X
-        SET [dtm_C], C
+:_pc_i2hex
+        SET [_pc_dtm_A], A
+        SET [_pc_dtm_X], X
+        SET [_pc_dtm_C], C
         SET C, 16
-:i2hexl SET A, [dtm_A]
+:_pc_i2hexl SET A, [_pc_dtm_A]
         SUB C, 4
         SHR A, C
         AND A, 0xF
@@ -397,9 +398,9 @@
         SET [B], X
         ADD B, 1
         IFN C, 0
-        SET PC, i2hexl
-        SET X, [dtm_X]
-        SET C, [dtm_C]
+        SET PC, _pc_i2hexl
+        SET X, [_pc_dtm_X]
+        SET C, [_pc_dtm_C]
         SET PC, POP
 
 ; set color for a processes status cell
@@ -407,7 +408,7 @@
 ; input A: the process slot number
 ; input C: the color
 
-:set_cell_color
+:_pc_set_cell_color
         AND A, 0xF
         MUL A, 4
         ADD A, 0x8000
@@ -419,11 +420,11 @@
 ; input B: the number of cells
 ; input C: the color (in the lower 8 bits), highlight bits are ignored
 
-:set_color
-        SET [dtm_A], X
+:_pc_set_color
+        SET [_pc_dtm_A], X
         AND C, 0x77
         SHL C, 8
-:set_color_l
+:_pc_set_color_l
         SET X, [A]
         AND X, 0x88FF ; keep characters and highlight bits
         BOR X, C
@@ -431,8 +432,8 @@
         SUB B, 1
         ADD A, 1
         IFN B, 0
-        SET PC, set_color_l
-        SET X, [dtm_A]
+        SET PC, _pc_set_color_l
+        SET X, [_pc_dtm_A]
         SET PC, POP
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
