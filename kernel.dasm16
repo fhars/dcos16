@@ -504,10 +504,10 @@
        SET PC, loop3
 
        SET Y, 0
-:loop4 SET A, [pid2]
+:loop4 JSR yield
+       SET A, [pid2]
        SET B, 1
        ADD Y, 1
-       JSR yield
        JSR wait
        IFN B,0
        SET PC, loop4
@@ -528,16 +528,17 @@
         SET A, 0x34
         JSR status_color
 :fact
-        SET Z, 1
+        SET A, X
         JSR fact_rec
-        SET A, Z
-        JSR exit
+        SET PC, exit
 :fact_rec
-        SET A, Z
         JSR yield
-        MUL Z, X
-        ADD X, -1
-        IFN X, 0
+        IFE A, 1
+        SET PC, POP
+        SET PUSH, A
+        SUB A, 1
         JSR fact_rec
+        MUL A, POP
+        JSR yield
         SET PC, POP
 :cc DATA 0
