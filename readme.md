@@ -1,19 +1,20 @@
 dcos16 - A simple cooperative multitasking kernel for DCPU16
 ============================================================
 
-The dcos16 kernel for Notch's DCPU16 processor manages up to 16
-cooperative processes with a very simple round robin scheduler.  Every
-process is reponsible for not writing over the other processes memory
-and to call
+The dcos16 kernel for <a href="http://twitter.com/#!/notch">Notch</a>'s
+<a href="http://0x10c.com/doc/dcpu-16.txt">DCPU16 processor</a> manages up to 16
+cooperative processes with a very simple round robin scheduler.
 
-```
-    JSR yield
-```
-
-at appropriate time to allow other processes to run. All registers
+New processes are started with the ```JSR fork``` call described
+below.  Every process is reponsible for not writing over the other
+processes memory and to call ```JSR yield``` at appropriate times to
+allow other processes to run. All registers
 except O are saved over a yield call, and each process has its own 256
 word stack, where again each process is responsible for not
-overflowing it.
+overflowing it. The process local stack is initialized with a pointer
+to the exit routine at the top, so a process can exit with ```SET PC,
+POP``` like any normal subroutine, or it can explicitly call
+```exit``` if it wants to terminate when the stack is not empty.
 
 The code has been tested in dcpustudio.
 
@@ -116,7 +117,7 @@ status cell of the currently running process. It takes a color between
 0 and 7 in eac of the lowest two nibbles of register ```A``` and
 clobbers registers ```A``` to ```C```. So
 
-```
+```dasm16
 SET A, 0x24
 JSR status_color
 ```
