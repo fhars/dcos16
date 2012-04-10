@@ -94,7 +94,8 @@
          SET C, B
          ADD C, 1
          MUL C, 0x100
-         ADD C, 0xF000
+         ADD C, 0xEFFF
+         SET [C], exit
          SET [save_SP + A], C
 
          ; registers XYZIJ are shared with the caller
@@ -521,7 +522,7 @@
         ADD [CC], 1
         SET J, [CC]
         IFG I, 3
-        JSR exit
+        SET PC, POP
         SET PC, loopc
 
 :fact_col
@@ -530,7 +531,7 @@
 :fact
         SET A, X
         JSR fact_rec
-        SET PC, exit
+        SET PC, POP
 :fact_rec
         JSR yield
         IFE A, 1
