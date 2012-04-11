@@ -26,6 +26,10 @@
          IFG 16, A
          SET PC, _pc_initloop
          SET [_pc_curr_proc], 15
+         SET A, 0
+         SET C, 1
+         JSR _pc_set_cell_hilit
+
          ;start the first process
          SET A, init
          SET B, 0
@@ -191,6 +195,7 @@
         SET PC, _pc_sleep_waiting
 
 :_pc_waitexited
+        JSR _pc_exit_nextscreen
         SET [_pc_status + A], 0
         SET PUSH, A
         SET C, 0
@@ -222,6 +227,7 @@
          SET C, 0x00
          JSR _pc_set_cell_color
          SET A, [_pc_curr_proc]
+         JSR _pc_exit_nextscreen
          SET PC, _pc_next_proc
 
 :_pc_exit_child
@@ -239,6 +245,8 @@
 :_pc_exit_sync
          ; mark slot as free
          SET [_pc_status + A], 0
+         JSR _pc_exit_nextscreen
+
          ; mark parent as running
          AND [_pc_status + C], 0xEFFF
          BOR [_pc_status + C], 0x4000
@@ -250,6 +258,22 @@
          JSR _pc_set_cell_color
          SET A, [_pc_curr_proc]
          SET PC, _pc_next_proc
+
+; if the process that currently holds the terminal is removed
+; from the process list, switch to the next active screen
+:_pc_exit_nextscreen
+        IFN A, [_pc_screen_proc]
+          SET PC, POP
+        SET PUSH, A
+        SET PUSH, C
+        SET PUSH, X
+        SET PUSH, Y
+        JSR _pc_next_screen
+        SET Y, POP
+        SET X, POP
+        SET C, POP
+        SET A, POP
+        SET PC, POP
 
 :yield
          SET [_pc_tmp_A], A
@@ -264,6 +288,15 @@
 
          SET SP, 0xF000
          JSR _pc_save_xyzij
+
+         JSR _pc_kbd_handler
+
+; DEBUG CODE
+; slow down to see something in cycleexact emulation
+;         SET X, 0
+;         ADD X, 1
+;         IFN X, 0x3000
+;           SUB PC, 4
 
          SET A, [_pc_tmp_A]
          SET B, [_pc_curr_proc]
@@ -347,6 +380,97 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
+;;  KEYBOARD HANDLING
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+; One task of the keyboard handler is to allow the user to
+; switch the display to another process.
+:_pc_kbd_handler
+        JSR _pc_getch
+        IFE A, 0x153 ; Pg_up
+          SET PC, _pc_next_screen
+        IFE A, 0x09 ; tab
+          SET PC, _pc_next_screen
+        IFE A, 0x152 ; Pg_dn
+          SET PC, _pc_prev_screen
+
+; DEBUG CODE
+; show last pressed key in cell 15
+        IFE A, 0
+          SET PC, POP
+        SET B, 15
+        JSR _pc_i2hex_cell
+        SET A, 15
+        SET C, 0x07
+        JSR _pc_set_cell_color
+
+        SET PC, POP
+
+
+; getch for a 16 byte ringbuffer
+:_pc_getch_16
+        SET B, [0x9010]
+        SET A, [0x9000 + B]
+        IFE A, 0
+          SET PC, POP
+        SET [0x9000 + B], 0
+        ADD B, 1
+        AND B, 0xF
+        SET [0x9010], B
+        SET PC, POP
+
+; move the _pc_getch label to the correct function
+:_pc_getch
+; getch for dcpustudio
+:_pc_getch_dcpustud
+        SET A, [0x9000]
+        SET [0x9000], 0
+        SET PC, POP
+
+:_pc_prev_screen
+        SET PC, POP
+        SET X, [_pc_screen_proc]
+        SET Y, X
+        SUB Y, 1
+        AND Y, 0xF
+        IFB 0x8000, [_pc_status + Y]
+          SET PC, _pc_rehilight
+        SUB PC, 8
+
+:_pc_next_screen
+        SET X, [_pc_screen_proc]
+        SET Y, X
+        ADD Y, 1
+        AND Y, 0xF
+        IFB 0x8000, [_pc_status + Y]
+          ADD PC, 1
+        SUB PC, 7
+
+; switch to the next active screen
+;
+; currently does nothing but highlight the status display cell
+; for the active process.
+;
+; input X: the currently displayed process
+; input Y: the next process to display
+:_pc_rehilight
+        SET A, X
+        SET C, 0
+        JSR _pc_set_cell_hilit
+        SET A, Y
+        SET C, 1
+        JSR _pc_set_cell_hilit
+        SET [_pc_screen_proc], Y
+        SET PC, POP
+
+; the PID of the process currently holding the screen
+:_pc_screen_proc DATA 0
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
 ;;  DISPLAY FUNCTIONS
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -362,7 +486,6 @@
         SET A, [_pc_curr_proc]
         SET PC, _pc_set_cell_color
 
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Internal display logic
 
@@ -370,6 +493,7 @@
 :_pc_dtm_A  DATA 0
 :_pc_dtm_C  DATA 0
 :_pc_dtm_X  DATA 0
+:_pc_dtm_Y  DATA 0
 
 ; print the hex representaion of the number in A in the
 ; cell for the slot number in B
@@ -385,8 +509,8 @@
 ; The function leaves the color information intact
 :_pc_i2hex
         SET [_pc_dtm_A], A
-        SET [_pc_dtm_X], X
         SET [_pc_dtm_C], C
+        SET [_pc_dtm_X], X
         SET C, 16
 :_pc_i2hexl SET A, [_pc_dtm_A]
         SUB C, 4
@@ -396,7 +520,7 @@
         ADD A, 0x7
         ADD A, 0x30
         SET X, [B]
-        AND X, 0xFF00
+        AND X, 0xFF80
         BOR X, A
         SET [B], X
         ADD B, 1
@@ -406,16 +530,64 @@
         SET C, [_pc_dtm_C]
         SET PC, POP
 
-; set color for a processes status cell
+:_pc_calc_set_cell
+        AND A, 0xF
+        MUL A, 4
+        ADD A, 0x8000
+        SET B, 4
+        SET PC, POP
+
+; set highlight for a process status cell
+;
+; input A: the process slot number
+; input C: highlight (1) or unhighlight (0)
+
+:_pc_set_cell_hilit
+        JSR _pc_calc_set_cell
+
+; set the higlight for an array of screen cells
+; always clear blink
+; input A: the address of the start cells
+; input B: the number of cells
+; input C: highlight (1) or unhighlight (0)
+
+:_pc_set_hilit
+        SET [_pc_dtm_X], X
+        SET [_pc_dtm_Y], Y
+        IFE C, 1
+          SET C, 0x8800
+        SET Y, 0x777F ; keep characters and colors
+        SET PC, _pc_set_status_l
+
+; set blink for a process status cell
+;
+; input A: the process slot number
+; input C: highlight (1) or unhighlight (0)
+
+:_pc_set_cell_hilit
+        JSR _pc_calc_set_cell
+
+; set the blink bit for an array of screen cells
+;
+; input A: the address of the start cells
+; input B: the number of cells
+; input C: blink on (1) or blink off (0)
+
+:_pc_set_blink
+        SET [_pc_dtm_X], X
+        SET [_pc_dtm_Y], Y
+        IFE C, 1
+          SET C, 0x0080
+        SET Y, 0xFF7F ; keep characters and colors
+        SET PC, _pc_set_status_l
+
+; set color for a process status cell
 ;
 ; input A: the process slot number
 ; input C: the color
 
 :_pc_set_cell_color
-        AND A, 0xF
-        MUL A, 4
-        ADD A, 0x8000
-        SET B, 4
+        JSR _pc_calc_set_cell
 
 ; set the color for an array of screen cells
 ;
@@ -424,19 +596,23 @@
 ; input C: the color (in the lower 8 bits), highlight bits are ignored
 
 :_pc_set_color
-        SET [_pc_dtm_A], X
+        SET [_pc_dtm_X], X
+        SET [_pc_dtm_Y], Y
         AND C, 0x77
         SHL C, 8
-:_pc_set_color_l
+        SET Y, 0x88FF ; keep characters and highlight bits
+
+:_pc_set_status_l
         SET X, [A]
-        AND X, 0x88FF ; keep characters and highlight bits
+        AND X, Y
         BOR X, C
         SET [A], X
         SUB B, 1
         ADD A, 1
         IFN B, 0
-        SET PC, _pc_set_color_l
-        SET X, [_pc_dtm_A]
+        SET PC, _pc_set_status_l
+        SET X, [_pc_dtm_X]
+        SET Y, [_pc_dtm_Y]
         SET PC, POP
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -517,7 +693,11 @@
        IFN B,0
        SET PC, loop4
 
-:crash SET PC, crash
+; the end is an endless loop
+       SET A, 0
+:crash JSR yield
+       ADD A, 1
+       SET PC, crash
 
 :count4 SET I, 0
 :loopc  SET A, I
