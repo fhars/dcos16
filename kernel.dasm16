@@ -356,14 +356,15 @@
 ; A status word for each process
 ;
 ;  Bit
-;  0 - 3  PID of the parent process if not a daemon process
-;  4      1 if this is a child process
-;  5      1 if this is a sync child
+;  0 - 3  0x000F  PID of the parent process if not a daemon process
+;  4      0x0010  1 if this is a child process
+;  5      0x0020  1 if this is a sync child
+;  6      0x0040  1 if this process uses custom status update code
 ;
-;  12     1 if this process is waiting for a child
-;  13     1 if this a a zombie process, 0 if waiting
-;  14     1 if this process is running, 0 if waiting
-;  15     1 if this slot is used, 0 if free
+;  12     0x1000  1 if this process is waiting for a child
+;  13     0x2000  1 if this a a zombie process, 0 if waiting
+;  14     0x4000  1 if this process is running, 0 if waiting
+;  15     0x8000  1 if this slot is used, 0 if free
 ;
 :_pc_status  RESERVE 16
 
