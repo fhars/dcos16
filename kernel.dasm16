@@ -110,7 +110,8 @@
 
          ;  clear the status cell
          SET PUSH, B
-         SET A, 0
+         SET A, B
+         SET B, 0
          JSR _pc_i2hex_cell
 
          SET A, PEEK
@@ -298,8 +299,10 @@
 ;         IFN X, 0x3000
 ;           SUB PC, 4
 
-         SET A, [_pc_tmp_A]
-         SET B, [_pc_curr_proc]
+         IFB [_pc_status + A], 0x40 ; process uses custom status code
+           ADD PC, 6
+         SET A, [_pc_curr_proc]
+         SET B, [_pc_tmp_A]
          JSR _pc_i2hex_cell
 
          ; seach for the next running process
@@ -400,7 +403,8 @@
 ; show last pressed key in cell 15
         IFE A, 0
           SET PC, POP
-        SET B, 15
+        SET B, A
+        SET A, 15
         JSR _pc_i2hex_cell
         SET A, 15
         SET C, 0x07
@@ -486,46 +490,60 @@
         SET A, [_pc_curr_proc]
         SET PC, _pc_set_cell_color
 
+; print the hex representation of a number in the status cell
+;
+; the function sets the custom status bit which disables the default
+; display of the A register on yield
+;
+; input A: the number to display
+; clobbers: A, B, C
+:status_i2hex
+        SET B, A
+        SET A, [_pc_curr_proc]
+        BOR [_pc_status + A], 0x40
+        SET PC, _pc_i2hex_cell
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Internal display logic
 
 ; Temporary storage for display helper functions
 :_pc_dtm_A  DATA 0
+:_pc_dtm_B  DATA 0
 :_pc_dtm_C  DATA 0
 :_pc_dtm_X  DATA 0
 :_pc_dtm_Y  DATA 0
 
-; print the hex representaion of the number in A in the
-; cell for the slot number in B
+; print the hex representaion of the number in B in the
+; cell for the slot number in a
 
 :_pc_i2hex_cell
-        AND B, 0xF
-        MUL B, 4
-        ADD B, 0x8000
+        AND A, 0xF
+        MUL A, 4
+        ADD A, 0x8000
 
-; convert the value in register A into a hex string stored at the
-; address pointed to by register B
+; convert the value in register B into a hex string stored at the
+; address pointed to by register A
 ;
 ; The function leaves the color information intact
 :_pc_i2hex
-        SET [_pc_dtm_A], A
+        SET [_pc_dtm_B], B
         SET [_pc_dtm_C], C
         SET [_pc_dtm_X], X
         SET C, 16
-:_pc_i2hexl SET A, [_pc_dtm_A]
+:_pc_i2hexl SET B, [_pc_dtm_B]
         SUB C, 4
-        SHR A, C
-        AND A, 0xF
-        IFG A, 9
-        ADD A, 0x7
-        ADD A, 0x30
-        SET X, [B]
+        SHR B, C
+        AND B, 0xF
+        IFG B, 9
+          ADD B, 0x7
+        ADD B, 0x30
+        SET X, [A]
         AND X, 0xFF80
-        BOR X, A
-        SET [B], X
-        ADD B, 1
+        BOR X, B
+        SET [A], X
+        ADD A, 1
         IFN C, 0
-        SET PC, _pc_i2hexl
+          SET PC, _pc_i2hexl
         SET X, [_pc_dtm_X]
         SET C, [_pc_dtm_C]
         SET PC, POP
