@@ -164,3 +164,47 @@ cell, including color, hilight and blink bits. The highlight and blink
 bits will be reset the next time the process recieves focus. After a
 process has called this routine, the automatic status update on yield
 will be deactivated.
+
+Screen output
+=============
+
+One of the processes is alway considered as being the one that is
+displayed on the screen below the status lines. That process is also
+said to "have focus". The user can cycle between the processes using
+tab (and, in some emulators, Pg_Up and Pg_Dn).
+
+The current implementation is quite primitive: everytime the user
+switches o the next process, the screen is cleared and output starts
+on the top of the screen.
+
+The current set of output functions has been adapted from <a
+href="https://github.com/jdiez17/0x42c">0x42c</a> and currently
+clobber more registers than they probabaly should. They set the
+foreground color to bright white and leave any background color and
+blink attribute that might be in the higher bits of the words
+containing the characters in their lower seven bits.
+
+The output functions have no effect if the process does not have
+focus.
+
+println
+-------
+
+prints the zero-terminated string pointed to by A followed by a
+newline.
+
+print
+-----
+prints the zero-terminated string pointed to by A.
+
+printchar
+---------
+prints the character in A.
+
+newline
+-------
+Starts a new line
+
+clear_screen
+------------
+Clears the screen.
