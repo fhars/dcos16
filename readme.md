@@ -91,10 +91,15 @@ Status display
 Dcos16 reserves the top two lines of the screen as a status display
 for the running processes (in the end we want to have a process for
 each of the ships main functions and a way to see if everything is ok
-at a glance). By default, it displays the content of the A register
+at a glance). One process is considered as the currently active
+process, its status cell is highlighted. Users can cycle between
+processes using the Tab key.
+
+By default, the status cell displays the content of the A register
 when a process calls yield in black on white.
 
-The colors are three bit rgb values:
+A process can change its status display color with the
+```status_color``` routine The colors are three bit rgb values:
 
 <table>
 <tr><td>000</td><td>0x0</td><td>White</td></tr>
@@ -114,7 +119,7 @@ status_color
 
 ```status_color``` sets the foregrond and background colors of the
 status cell of the currently running process. It takes a color between
-0 and 7 in eac of the lowest two nibbles of register ```A``` and
+0 and 7 in each of the lowest two nibbles of register ```A``` and
 clobbers registers ```A``` to ```C```. So
 
 ```dasm16
@@ -123,3 +128,28 @@ JSR status_color
 ```
 
 will set the foreground to green (2) and the background to red (4)
+
+status_i2hex
+------------
+
+```status_i2hex``` displays the content of the A register in the
+process status cell. After a process has called this routine, the
+automatic status update on yield will be deactivated.
+
+status_string
+-------------
+
+```status_string``` displays the four characters in the lower seven
+bits of the four words pointed to by the A register in the process
+status cell. After a process has called this routine, the automatic
+status update on yield will be deactivated.
+
+status_raw
+-----------
+
+```status_raw``` displays the four characters in the lower seven bits
+of the foure words pointed to by the A register in the process status
+cell, including color, hilight and blink bits. The highlight and blink
+bits will be reset the next time the process recieves focus. After a
+process has called this routine, the automatic status update on yield
+will be deactivated.
