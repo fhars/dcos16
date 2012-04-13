@@ -168,13 +168,13 @@ will be deactivated.
 Screen output
 =============
 
-One of the processes is alway considered as being the one that is
+One of the processes is always considered as being the one that is
 displayed on the screen below the status lines. That process is also
 said to "have focus". The user can cycle between the processes using
 tab (and, in some emulators, Pg_Up and Pg_Dn).
 
 The current implementation is quite primitive: everytime the user
-switches o the next process, the screen is cleared and output starts
+switches to the next process, the screen is cleared and output starts
 on the top of the screen.
 
 The current set of output functions has been adapted from <a
