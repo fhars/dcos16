@@ -678,6 +678,14 @@
         SET A, [_pc_curr_proc]
         SET PC, _pc_set_cell_color
 
+; set the blink attribute for the current process status cell
+;
+; input A: : blink on (1) or blink off (0)
+:status_blink
+        SET C, A
+        SET A, [_pc_curr_proc]
+        SET PC, _pc_set_cell_blink
+
 ; print the hex representation of a number in the status cell
 ;
 ; the function sets the custom status bit which disables the default
@@ -821,12 +829,11 @@
         SET Y, 0x777F ; keep characters and colors
         SET PC, _pc_set_status_l
 
-; set blink for a process status cell
+; set blink attribute for a process status cell
 ;
 ; input A: the process slot number
-; input C: highlight (1) or unhighlight (0)
-
-:_pc_set_cell_hilit
+; input C: blink on (1) or blink off (0)
+:_pc_set_cell_blink
         JSR _pc_calc_set_cell
 
 ; set the blink bit for an array of screen cells
@@ -960,9 +967,15 @@
        SET PC, loop4
 
 ; the end is an endless loop
-       SET A, 0
-:crash JSR yield
-       ADD A, 1
+       SET I, 0
+:crash SET A, I
+       JSR yield
+       SET B, I
+       AND B, 0x0fff
+       SET A, 1
+       IFE B, 0
+         JSR status_blink
+       ADD I, 1
        SET PC, crash
 
 :show_foobar

@@ -129,6 +129,17 @@ JSR status_color
 
 will set the foreground to green (2) and the background to red (4)
 
+status_blink
+------------
+
+```status_blink``` sets the blink attribute of the current process
+status cell if A is 1 and clears it otherwise. The blink bit is also
+cleared if the user tabs to or from the process. ```status_blink``` is
+meant as a way for processes that are not currently displayed to
+notify the user that something has happened that requires immediate
+attention.
+
+
 status_i2hex
 ------------
 
