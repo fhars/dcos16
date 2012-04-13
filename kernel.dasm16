@@ -1,5 +1,8 @@
 ; Copyright (c) 2012 Florian Hars
 ;
+; memset and several output methods from https://github.com/jdiez17/0x42c
+; Copyright (c) 2012 José Manuel Díez
+;
 ; Permission is hereby granted, free of charge, to any person obtaining
 ; a copy of this software and associated documentation files (the
 ; "Software"), to deal in the Software without restriction, including
@@ -320,6 +323,13 @@
 
 :_pc_run_next_proc
          SET [_pc_curr_proc], A
+         SET PUSH, A
+
+         SET [_pc_vidbase], 0
+         IFE [_pc_curr_proc], [_pc_screen_proc]
+           SET [_pc_vidbase], 0x8040
+
+         SET A, POP
          MUL A, 10
 
          ; restore register values of the next process
@@ -383,6 +393,59 @@
 :_pc_save_PC DATA 0
 :_pc_save_SP DATA 0
          RESERVE 150
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;;  MEMORY HANDLING
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+; Set C words starting at A to B
+;
+; Adapted from https://github.com/jdiez17/0x42c
+; Credit for this function goes to Tobba
+:memset
+        SET PUSH, X
+        SET X, SP
+        SET SP, A
+        ADD A, C
+
+        SET PC, _pc_memset_duff
+
+:_pc_memset_loop
+        SET POP, B
+        SET POP, B
+        SET POP, B
+        SET POP, B
+        SET POP, B
+        SET POP, B
+        SET POP, B
+        SET POP, B
+        SET POP, B
+        SET POP, B
+        SET POP, B
+        SET POP, B
+        SET POP, B
+        SET POP, B
+        SET POP, B
+        SET POP, B
+
+        IFE SP, A
+        SET PC, _pc_memset_end
+        SET PC, _pc_memset_loop
+
+:_pc_memset_duff
+        AND C, 0xF
+        ADD C, 8
+        SUB PC, C
+
+:_pc_memset_end
+        SET SP, X
+        SET X, POP
+        SET PC, POP
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -464,6 +527,7 @@
 ; input X: the currently displayed process
 ; input Y: the next process to display
 :_pc_rehilight
+
         SET A, X
         SET C, 0
         JSR _pc_set_cell_hilit
@@ -471,15 +535,135 @@
         SET C, 1
         JSR _pc_set_cell_hilit
         SET [_pc_screen_proc], Y
+
+        SET [_pc_vidbase], 0x8040
+        SET [_pc_vidmem], [_pc_vidbase]
+        JSR clear_screen
+
         SET PC, POP
 
 ; the PID of the process currently holding the screen
 :_pc_screen_proc DATA 0
+:_pc_vidbase DATA 0x8040
+:_pc_vidmem  DATA 0x8040
+:_pc_vidend  DATA 0x81FF
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-;;  DISPLAY FUNCTIONS
+;;  OUTPUT FUNCTIONS
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+:println ; shortcut
+         jsr print
+         jsr newline
+         set pc, pop
+
+:print
+        IFE [_pc_vidbase], 0
+          SET PC, POP
+        set i, a
+:_pc_doprint
+        ife [i], 0
+        set pc, pop
+        set a, [i]
+        jsr printchar
+        add i, 1
+        set pc, _pc_doprint
+
+:printchar
+        IFE [_pc_vidbase], 0
+          SET PC, POP
+        ifg [_pc_vidmem], [_pc_vidend]
+          jsr _pc_scroll
+        set b, [_pc_vidmem]
+        bor a, 0xf000 ; color :D
+        set [b], a
+        add [_pc_vidmem], 1
+        set pc, pop
+
+:newline
+        IFE [_pc_vidbase], 0
+          SET PC, POP
+        set a, [_pc_vidmem]
+        mod a, 32 ; width
+        set b, 32
+        sub b, a
+        add [_pc_vidmem], b
+        set pc, pop
+
+:_pc_scroll
+        set x, [_pc_vidbase]
+        SET PUSH, A
+        set z, x
+        add z, 0x20
+
+        set j, sp ; nifty stack pointer abuse :P
+        set sp, [_pc_vidbase]
+
+:_pc_scroll_loop
+        set pop, [z]
+        set pop, [1+z]
+        set pop, [2+z]
+        set pop, [3+z]
+        set pop, [4+z]
+        set pop, [5+z]
+        set pop, [6+z]
+        set pop, [7+z]
+        set pop, [8+z]
+        set pop, [9+z]
+        set pop, [10+z]
+        set pop, [11+z]
+        set pop, [12+z]
+        set pop, [13+z]
+        set pop, [14+z]
+        set pop, [15+z]
+        set pop, [16+z]
+        set pop, [17+z]
+        set pop, [18+z]
+        set pop, [19+z]
+        set pop, [20+z]
+        set pop, [21+z]
+        set pop, [22+z]
+        set pop, [23+z]
+        set pop, [24+z]
+        set pop, [25+z]
+        set pop, [26+z]
+        set pop, [27+z]
+        set pop, [28+z]
+        set pop, [29+z]
+        set pop, [30+z]
+        set pop, [31+z] ; unrolled loop. So sue me :P
+
+        add z, 32
+        ifg [_pc_vidend], z
+          set pc, _pc_scroll_loop
+
+:_pc_scroll_end
+        set sp, j
+        set [_pc_vidmem], [_pc_vidend]
+        sub [_pc_vidmem], 0x1f
+        SET A, [_pc_vidmem]
+        SET C, 0x0020
+        SET B, 0x0055
+        JSR memset
+        set A, POP
+        set pc, pop
+
+:clear_screen
+        SET A, [_pc_vidbase]
+        SET C, [_pc_vidend]
+        SUB C, A
+        ADD C, 1
+        SET B, 0x0020
+        SET PC, memset
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;;  STATUS DISPLAY FUNCTIONS
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -784,6 +968,8 @@
 :show_foobar
         SET A, lbl_foo
         JSR status_string
+        SET A, lbl_foo
+        JSR println
         SET B, 100
         SUB B, 1
         JSR yield
@@ -791,6 +977,8 @@
           SUB PC, 5
         SET A, lbl_bar
         JSR status_string
+        SET A, lbl_bar
+        JSR println
         SET B, 100
         SUB B, 1
         JSR yield
@@ -801,7 +989,8 @@
 :lbl_foo
         DATA "foo "
 :lbl_bar
-        DATA "bar "
+        DATA "bar ", 0x0
+
 :count4 SET I, 0
 :loopc  SET A, I
         JSR yield
