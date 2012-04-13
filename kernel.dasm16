@@ -196,12 +196,15 @@
         SET PC, _pc_sleep_waiting
 
 :_pc_waitexited
+        SET [_pc_tmp_SP], SP
+        SET SP, 0xF000
         JSR _pc_exit_nextscreen
         SET [_pc_status + A], 0
         SET PUSH, A
         SET C, 0
         JSR _pc_set_cell_color
         SET A, POP
+        SET SP, [_pc_tmp_SP]
         MUL A, 10
         SET A, [_pc_save_A + A]
         SET B, 0
