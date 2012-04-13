@@ -356,14 +356,14 @@
          set PC, POP
 
 ; persistend state of the scheduler
-:_pc_curr_proc DATA 15
+:_pc_curr_proc DAT 15
 
 ; temporary storage of the scheduler
-:_pc_tmp_A   DATA 0
-:_pc_tmp_B   DATA 0
-:_pc_tmp_C   DATA 0
-:_pc_tmp_PC  DATA 0
-:_pc_tmp_SP  DATA 0
+:_pc_tmp_A   DAT 0
+:_pc_tmp_B   DAT 0
+:_pc_tmp_C   DAT 0
+:_pc_tmp_PC  DAT 0
+:_pc_tmp_SP  DAT 0
 ; Persistent register files of the processes
 
 ; A status word for each process
@@ -382,16 +382,16 @@
 :_pc_status  RESERVE 16
 
 ; A register file for each of the processes
-:_pc_save_A  DATA 0
-:_pc_save_B  DATA 0
-:_pc_save_C  DATA 0
-:_pc_save_X  DATA 0
-:_pc_save_Y  DATA 0
-:_pc_save_Z  DATA 0
-:_pc_save_I  DATA 0
-:_pc_save_J  DATA 0
-:_pc_save_PC DATA 0
-:_pc_save_SP DATA 0
+:_pc_save_A  DAT 0
+:_pc_save_B  DAT 0
+:_pc_save_C  DAT 0
+:_pc_save_X  DAT 0
+:_pc_save_Y  DAT 0
+:_pc_save_Z  DAT 0
+:_pc_save_I  DAT 0
+:_pc_save_J  DAT 0
+:_pc_save_PC DAT 0
+:_pc_save_SP DAT 0
          RESERVE 150
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -589,10 +589,10 @@
         SET PC, POP
 
 ; the PID of the process currently holding the screen
-:_pc_screen_proc DATA 0
-:_pc_vidbase DATA 0x8040
-:_pc_vidmem  DATA 0x8040
-:_pc_vidend  DATA 0x8200
+:_pc_screen_proc DAT 0
+:_pc_vidbase DAT 0x8040
+:_pc_vidmem  DAT 0x8040
+:_pc_vidend  DAT 0x8200
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -733,11 +733,11 @@
 ;; Internal display logic
 
 ; Temporary storage for display helper functions
-:_pc_dtm_A  DATA 0
-:_pc_dtm_B  DATA 0
-:_pc_dtm_C  DATA 0
-:_pc_dtm_X  DATA 0
-:_pc_dtm_Y  DATA 0
+:_pc_dtm_A  DAT 0
+:_pc_dtm_B  DAT 0
+:_pc_dtm_C  DAT 0
+:_pc_dtm_X  DAT 0
+:_pc_dtm_Y  DAT 0
 
 ; print the hex representaion of the number in B in the
 ; cell for the slot number in a
@@ -898,11 +898,11 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-:foo    DATA 0xFFFF
-:db     DATA 0
-:foo2   DATA 0xFFFF
-:pid    DATA 0
-:pid2   DATA 0
+:foo    DAT 0xFFFF
+:db     DAT 0
+:foo2   DAT 0xFFFF
+:pid    DAT 0
+:pid2   DAT 0
 :init   SET X, 1
         SET A, 0x06
         JSR status_color
@@ -1006,9 +1006,9 @@
         SET PC, show_foobar
 
 :lbl_foo
-        DATA "foo "
+        DAT "foo "
 :lbl_bar
-        DATA "bar ", 0x0
+        DAT "bar ", 0x0
 
 :count4 SET I, 0
 :loopc  SET A, I
@@ -1037,4 +1037,4 @@
         MUL A, POP
         JSR yield
         SET PC, POP
-:cc DATA 0
+:cc DAT 0
