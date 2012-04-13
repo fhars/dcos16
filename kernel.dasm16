@@ -302,9 +302,9 @@
 ;         IFN X, 0x3000
 ;           SUB PC, 4
 
-         IFB [_pc_status + A], 0x40 ; process uses custom status code
-           ADD PC, 6
          SET A, [_pc_curr_proc]
+         IFB [_pc_status + A], 0x40 ; process uses custom status code
+           ADD PC, 4
          SET B, [_pc_tmp_A]
          JSR _pc_i2hex_cell
 
