@@ -507,6 +507,30 @@
         BOR [_pc_status + A], 0x40
         SET PC, _pc_i2hex_cell
 
+; write a string to a process status cell
+;
+; This writes the four consecutive charaters pointed
+; to by A into the current process status cell, without
+; changing attributes
+;
+; input A: a the address of the string to write
+
+:status_string
+        SET C, 0xFF80
+        SET PC, _pc_set_cell
+
+; write four words to a process status cell
+;
+; This writes the four consecutive words pointed
+; to by A into the current process status cell, overwriting
+; all attributes
+;
+; input A: a the address of the string to write
+
+:status_raw
+        SET C, 0x0000
+        SET PC, _pc_set_cell
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Internal display logic
 
@@ -559,10 +583,42 @@
         SET B, 4
         SET PC, POP
 
+; write a masked array of words to a process status cell
+;
+; input A: pointer to the array
+; input C: mask of bits to keep in the status cell
+:_pc_set_cell
+        SET [_pc_dtm_X], X
+        SET [_pc_dtm_Y], Y
+        SET [_pc_dtm_C], Z
+        SET X, A
+        SET A, [_pc_curr_proc]
+        BOR [_pc_status + A], 0x40
+        JSR _pc_calc_set_cell
+        SET Z, C
+        XOR Z, 0xFFFF
+:_pc_set_cell_l
+        AND [A], C
+        SET Y, [X]
+        AND Y, Z
+        BOR [A], Y
+        SUB B, 1
+        IFE B, 0
+          SET PC, _pc_set_cell_end
+        ADD A, 1
+        ADD X, 1
+        SET PC, _pc_set_cell_l
+:_pc_set_cell_end
+        SET X, [_pc_dtm_X]
+        SET Y, [_pc_dtm_Y]
+        SET Z, [_pc_dtm_C]
+        SET PC, POP
+
 ; set highlight for a process status cell
 ;
 ; input A: the process slot number
 ; input C: highlight (1) or unhighlight (0)
+        JSR _pc_calc_set_cell
 
 :_pc_set_cell_hilit
         JSR _pc_calc_set_cell
@@ -698,6 +754,10 @@
        JSR fork
        SET [pid2], A
 
+       SET A, show_foobar
+       SET B, 0
+       JSR fork
+
 :loop3 SET A, [pid]
        SET B, 1
        ADD Y, 1
@@ -721,6 +781,27 @@
        ADD A, 1
        SET PC, crash
 
+:show_foobar
+        SET A, lbl_foo
+        JSR status_string
+        SET B, 100
+        SUB B, 1
+        JSR yield
+        IFN B, 0
+          SUB PC, 5
+        SET A, lbl_bar
+        JSR status_string
+        SET B, 100
+        SUB B, 1
+        JSR yield
+        IFN B, 0
+          SUB PC, 5
+        SET PC, show_foobar
+
+:lbl_foo
+        DATA "foo "
+:lbl_bar
+        DATA "bar "
 :count4 SET I, 0
 :loopc  SET A, I
         JSR yield
