@@ -394,6 +394,7 @@
 ;  6      0x0040  1 if this process uses custom status update code
 ;  7      0x0080  1 if this is an interactive process
 ;
+;  10     0x0400  1 if this process waits for keyboard input
 ;  11     0x0800  1 if this process waits for the terminal
 ;  12     0x1000  1 if this process is waiting for a child
 ;  13     0x2000  1 if this a a zombie process, 0 if waiting
@@ -590,17 +591,18 @@
         IFE A, 0
           SET PC, POP
 
-        ; store the character in the buffer for the displayed
-        ; process if it is empty (otherwise discard the key)
-        SET B, [_pc_screen_proc]
-        IFN [_pc_kbd_buf + B], 0
-          SET PC, _pc_kbd_1
-        SET [_pc_kbd_buf + B], A
-:_pc_kbd_1
         SET PUSH, A
         SET B, [_pc_cycle_count]
         JSR _pc_update_entropy
         SET A, POP
+
+        ; store the character in the buffer for the displayed
+        ; process if it is empty (otherwise discard the key)
+        SET B, [_pc_screen_proc]
+        IFB [_pc_status + B], 0x0400
+          SET PC, _pc_kbd_resume
+        IFE [_pc_kbd_buf + B], 0
+          SET [_pc_kbd_buf + B], A
 
 ; DEBUG CODE
 ; show last pressed key in cell 15
@@ -613,6 +615,12 @@
 
         SET PC, POP
 
+:_pc_kbd_resume
+        BOR [_pc_status + B], 0x4000
+        AND [_pc_status + B], 0xFBFF
+        MUL B, 10
+        SET [_pc_save_A + B], A
+        SET PC, POP
 
 ; getch for a 16 byte ringbuffer
 :_pc_getch_16
@@ -718,6 +726,17 @@
         SET A, [_pc_kbd_buf + B]
         SET [_pc_kbd_buf + B], 0
         SET PC, POP
+
+; blocking read
+:readch
+        SET B, [_pc_curr_proc]
+        SET A, [_pc_kbd_buf + B]
+        SET [_pc_kbd_buf + B], 0
+        IFN A, 0
+          SET PC, POP
+        BOR [_pc_status + B], 0x0400
+        AND [_pc_status + B], 0xBFFF
+        SET PC, yield
 
 :println ; shortcut
          jsr print
@@ -1098,6 +1117,10 @@
        IFN B,0
        SET PC, loop4
 
+       SET A, read_test
+       SET B, 0
+       JSR fork
+
 ; the end is an endless loop
        SET A, type_text
        JSR println
@@ -1116,6 +1139,20 @@
        SET PC, crash
 :type_text
         DAT "Type something here",0
+
+:read_test
+        SET I, 0
+:rtloop
+        ADD I, 1
+        SET A, I
+        JSR yield
+        AND A, 0xFF
+        IFN A, 0
+          SET PC, rtloop
+        JSR readch
+        JSR printchar
+        SET PC, rtloop
+
 :show_foobar
         SET A, 1
         JSR set_interactive

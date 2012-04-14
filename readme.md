@@ -215,6 +215,13 @@ getch
 ```getch``` performs a nonblocking read of the keyboard, returning
 either the last key pressed for the current process, or 0.
 
+readch
+------
+
+```readch``` performs a blocking read of the keyboard, returning
+either the last key pressed, suspending the process until a key has
+been presse if none is available.
+
 println
 -------
 
