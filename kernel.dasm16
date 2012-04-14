@@ -719,6 +719,8 @@
         set pc, _pc_doprint
 
 :printchar
+        IFE A, 0xA
+          SET PC, newline
         IFE [_pc_vidbase], 0
           SET PC, POP
         ifg [_pc_vidend], [_pc_vidmem]
@@ -738,6 +740,9 @@
         set b, 32
         sub b, a
         add [_pc_vidmem], b
+        ifg [_pc_vidend], [_pc_vidmem]
+          SET PC, POP
+        jsr _pc_scroll
         set pc, pop
 
 :_pc_scroll
