@@ -355,6 +355,25 @@
          SET [_pc_save_J + A], J
          set PC, POP
 
+; mark the current process as interactive
+;
+; an interactive process will be suspended unless it has the
+; terminal focus
+; input A: if zero clear the interactive bit, otherwise set it
+:set_interactive
+        SET B, [_pc_curr_proc]
+        IFE A, 0
+          SET PC, _pc_clear_interactive
+        BOR [_pc_status + B], 0x0080
+        IFE B, [_pc_screen_proc]
+          SET PC, POP
+        BOR [_pc_status + B], 0x0800
+        AND [_pc_status + B], 0xBFFF
+        SET PC, yield
+:_pc_clear_interactive
+        AND [_pc_status + B], 0xFF7F
+        SET PC, POP
+
 ; persistend state of the scheduler
 :_pc_curr_proc DAT 15
 
@@ -373,7 +392,9 @@
 ;  4      0x0010  1 if this is a child process
 ;  5      0x0020  1 if this is a sync child
 ;  6      0x0040  1 if this process uses custom status update code
+;  7      0x0080  1 if this is an interactive process
 ;
+;  11     0x0800  1 if this process waits for the terminal
 ;  12     0x1000  1 if this process is waiting for a child
 ;  13     0x2000  1 if this a a zombie process, 0 if waiting
 ;  14     0x4000  1 if this process is running, 0 if waiting
@@ -613,7 +634,7 @@
         SUB Y, 1
         AND Y, 0xF
         IFB 0x8000, [_pc_status + Y]
-          SET PC, _pc_rehilight
+          SET PC, _pc_switch_screen
         SUB PC, 8
 
 :_pc_next_screen
@@ -632,8 +653,25 @@
 ;
 ; input X: the currently displayed process
 ; input Y: the next process to display
-:_pc_rehilight
-
+:_pc_switch_screen
+        ; if the old current process is interactive,
+        ; mark it as suspended
+        IFB [_pc_status + X], 0x0080
+          SET PC, _pc_switch_suspend
+        SET PC, _pc_switch_1
+:_pc_switch_suspend
+        BOR [_pc_status + X], 0x0800
+        AND [_pc_status + X], 0xBFFF
+:_pc_switch_1
+        ; if the new current process is waiting for the terminal,
+        ; mark it as running
+        IFB [_pc_status + Y], 0x0080
+          SET PC, _pc_switch_resume
+        SET PC, _pc_switch_2
+:_pc_switch_resume
+        AND [_pc_status + Y], 0xF7FF
+        BOR [_pc_status + Y], 0x4000
+:_pc_switch_2
         SET A, X
         SET C, 0
         JSR _pc_set_cell_hilit
@@ -1050,6 +1088,9 @@
        SET PC, crash
 
 :show_foobar
+        SET A, 1
+        JSR set_interactive
+:show_foobar1
         SET A, lbl_foo
         JSR status_string
         SET A, lbl_foo
@@ -1068,7 +1109,7 @@
         JSR yield
         IFN B, 0
           SUB PC, 5
-        SET PC, show_foobar
+        SET PC, show_foobar1
 
 :lbl_foo
         DAT "foo "

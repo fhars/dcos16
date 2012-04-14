@@ -85,6 +85,12 @@ is non-blocking, it returns 0 in ```A``` and -1 in ```B```. If the
 call is blocking, the processes will behave as if the fork had been
 done in mode 2 from then on.
 
+set_interactive
+---------------
+
+By calling this routine a process can say whether it wants to be
+suspended while it does not have the focus.
+
 Status display
 ==============
 
