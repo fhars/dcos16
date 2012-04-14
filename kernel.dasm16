@@ -450,7 +450,7 @@
 ; copy C words starting at A from  B
 ;
 ; If the memory areas overlap, the routine will only work
-; if the target address is lover than the source address
+; if the target address is lower than the source address
 ;
 ; input A: target address
 ; input B: source address
