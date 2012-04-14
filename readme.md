@@ -183,8 +183,8 @@ with a pregenerated random number, and the state is updated on every
 keypress (as that is currently the only source of nondeterminism in
 the system).
 
-Screen output
-=============
+Input and output
+================
 
 One of the processes is always considered as being the one that is
 displayed on the screen below the status lines. That process is also
@@ -195,6 +195,10 @@ The current implementation is quite primitive: everytime the user
 switches to the next process, the screen is cleared and output starts
 on the top of the screen.
 
+Key presses will be deliverd to the process that has the focus. dcos16
+stores one key per process, additional keys pressed before the
+last key has been read are discarded.
+
 The current set of output functions has been adapted from <a
 href="https://github.com/jdiez17/0x42c">0x42c</a> and currently
 clobber more registers than they probabaly should. They set the
@@ -204,6 +208,12 @@ containing the characters in their lower seven bits.
 
 The output functions have no effect if the process does not have
 focus.
+
+getch
+-----
+
+```getch``` performs a nonblocking read of the keyboard, returning
+either the last key pressed for the current process, or 0.
 
 println
 -------

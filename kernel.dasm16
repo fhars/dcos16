@@ -571,7 +571,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-;;  KEYBOARD HANDLING
+;;  KEYBOARD AND SCREEN HANDLING
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -590,6 +590,13 @@
         IFE A, 0
           SET PC, POP
 
+        ; store the character in the buffer for the displayed
+        ; process if it is empty (otherwise discard the key)
+        SET B, [_pc_screen_proc]
+        IFN [_pc_kbd_buf + B], 0
+          SET PC, _pc_kbd_1
+        SET [_pc_kbd_buf + B], A
+:_pc_kbd_1
         SET PUSH, A
         SET B, [_pc_cycle_count]
         JSR _pc_update_entropy
@@ -689,6 +696,10 @@
 ; the PID of the process currently holding the screen
 :_pc_screen_proc DAT 0
 :_pc_cycle_count DAT 0
+
+; one character keyboard buffer for each process
+:_pc_kbd_buf RESERVE 0x10
+
 :_pc_vidbase DAT 0x8040
 :_pc_vidmem  DAT 0x8040
 :_pc_vidend  DAT 0x8200
@@ -696,10 +707,17 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-;;  OUTPUT FUNCTIONS
+;;  INPUT AND OUTPUT FUNCTIONS
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+; return the last key for this process, or 0 if there is none
+:getch
+        SET B, [_pc_curr_proc]
+        SET A, [_pc_kbd_buf + B]
+        SET [_pc_kbd_buf + B], 0
+        SET PC, POP
 
 :println ; shortcut
          jsr print
@@ -1081,9 +1099,14 @@
        SET PC, loop4
 
 ; the end is an endless loop
+       SET A, type_text
+       JSR println
        SET I, 0
 :crash SET A, I
        JSR yield
+       JSR getch
+       IFN A, 0
+         JSR printchar
        SET B, I
        AND B, 0x0fff
        SET A, 1
@@ -1091,7 +1114,8 @@
          JSR status_blink
        ADD I, 1
        SET PC, crash
-
+:type_text
+        DAT "Type something here",0
 :show_foobar
         SET A, 1
         JSR set_interactive
