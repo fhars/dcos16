@@ -165,6 +165,18 @@ bits will be reset the next time the process recieves focus. After a
 process has called this routine, the automatic status update on yield
 will be deactivated.
 
+Utility functions
+=================
+
+random
+------
+
+```random``` uses a 32 bit LCG to generate random numbers. It returns
+the next number in registers A (high) and B (low). It is initialized
+with a pregenerated random number, and the state is updated on every
+keypress (as that is currently the only source of nondeterminism in
+the system).
+
 Screen output
 =============
 

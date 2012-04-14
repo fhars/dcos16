@@ -493,6 +493,60 @@
         SET X, POP
         SET PC, POP
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;;  RANDOM NUMBERS
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+; Generate a pseudorandom number using a 32bit linear
+; congruential generator
+;
+; Multiplication constants taken from P. L'Ecuyer, Tables... (1999),
+; http://citeseer.ist.psu.edu/viewdoc/summary?doi=10.1.1.34.1024
+;
+; return A: high 16 bit of next random value
+; return B: low 16 bit of next random value
+:random
+        SET A, 44118
+        MUL A, [_pc_rand_hi]
+        SET B, 19205
+        MUL B, [_pc_rand_lo]
+        ADD A, O
+        ADD B, 101
+        ADD A, O
+        SET [_pc_rand_lo], B
+        SET [_pc_rand_hi], A
+        SET PC, POP
+
+; mix the values in A and B into the random number state
+;
+; this probably violates every rule of how to do this (like,
+; don't design crypto primitives over lunch), but it does mix
+; the bits up. Remember, it's a game.
+:_pc_update_entropy
+        SET C, [_pc_rand_lo]
+        SHL C, 7
+        BOR C, O
+        XOR C, B
+        XOR C, A
+        SET A, [_pc_rand_hi]
+        SHL A, 11
+        BOR C, O
+        XOR A, C
+        XOR A, B
+        SET [_pc_rand_lo], C
+        SET [_pc_rand_hi], B
+        SET PC, POP
+
+:_pc_rand_lo
+        DAT 13908
+:_pc_rand_hi
+        DAT 692
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -504,6 +558,7 @@
 ; One task of the keyboard handler is to allow the user to
 ; switch the display to another process.
 :_pc_kbd_handler
+        ADD [_pc_cycle_count], 1
         JSR _pc_getch
         IFE A, 0x153 ; Pg_up
           SET PC, _pc_next_screen
@@ -511,11 +566,16 @@
           SET PC, _pc_next_screen
         IFE A, 0x152 ; Pg_dn
           SET PC, _pc_prev_screen
+        IFE A, 0
+          SET PC, POP
+
+        SET PUSH, A
+        SET B, [_pc_cycle_count]
+        JSR _pc_update_entropy
+        SET A, POP
 
 ; DEBUG CODE
 ; show last pressed key in cell 15
-        IFE A, 0
-          SET PC, POP
         SET B, A
         SET A, 15
         JSR _pc_i2hex_cell
@@ -590,6 +650,7 @@
 
 ; the PID of the process currently holding the screen
 :_pc_screen_proc DAT 0
+:_pc_cycle_count DAT 0
 :_pc_vidbase DAT 0x8040
 :_pc_vidmem  DAT 0x8040
 :_pc_vidend  DAT 0x8200
@@ -955,6 +1016,10 @@
        SET B, 0
        JSR fork
 
+       SET A, show_random
+       SET B, 0
+       JSR fork
+
 :loop3 SET A, [pid]
        SET B, 1
        ADD Y, 1
@@ -1009,6 +1074,17 @@
         DAT "foo "
 :lbl_bar
         DAT "bar ", 0x0
+
+:show_random
+        JSR random
+        JSR status_i2hex
+        SET A, 300
+:_sr
+        JSR yield
+        SUb A, 1
+        IFN A, 0
+          SET PC, _sr
+        SET PC, show_random
 
 :count4 SET I, 0
 :loopc  SET A, I
