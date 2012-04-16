@@ -155,8 +155,8 @@
          SET PC, yield
 
 :_pc_fork_error
-         SET A, -1
-         SET B, -1
+         SET A, 0xFFFF
+         SET B, 0xFFFF
          SET PC, POP
 
 ; wait for the result of a child process
@@ -188,7 +188,7 @@
 
         ; waiting non-blocking on a runnig process
         SET A, 0
-        SET B, -1
+        SET B, 0xFFFF
         SET PC, POP
 
 ; if we want a blocking wait on a runnig process,
@@ -401,7 +401,8 @@
 ;  14     0x4000  1 if this process is running, 0 if waiting
 ;  15     0x8000  1 if this slot is used, 0 if free
 ;
-:_pc_status  RESERVE 16
+:_pc_status  ; RESERVE 16
+        DAT 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 
 ; A register file for each of the processes
 :_pc_save_A  DAT 0
@@ -414,7 +415,22 @@
 :_pc_save_J  DAT 0
 :_pc_save_PC DAT 0
 :_pc_save_SP DAT 0
-         RESERVE 150
+       ;  RESERVE 150
+       DAT 0,0,0,0,0,0,0,0,0,0
+       DAT 0,0,0,0,0,0,0,0,0,0
+       DAT 0,0,0,0,0,0,0,0,0,0
+       DAT 0,0,0,0,0,0,0,0,0,0
+       DAT 0,0,0,0,0,0,0,0,0,0
+       DAT 0,0,0,0,0,0,0,0,0,0
+       DAT 0,0,0,0,0,0,0,0,0,0
+       DAT 0,0,0,0,0,0,0,0,0,0
+       DAT 0,0,0,0,0,0,0,0,0,0
+       DAT 0,0,0,0,0,0,0,0,0,0
+       DAT 0,0,0,0,0,0,0,0,0,0
+       DAT 0,0,0,0,0,0,0,0,0,0
+       DAT 0,0,0,0,0,0,0,0,0,0
+       DAT 0,0,0,0,0,0,0,0,0,0
+       DAT 0,0,0,0,0,0,0,0,0,0
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -706,8 +722,8 @@
 :_pc_cycle_count DAT 0
 
 ; one character keyboard buffer for each process
-:_pc_kbd_buf RESERVE 0x10
-
+:_pc_kbd_buf ;RESERVE 0x10
+             DAT 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 :_pc_vidbase DAT 0x8040
 :_pc_vidmem  DAT 0x8040
 :_pc_vidend  DAT 0x8200
