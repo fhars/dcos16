@@ -638,6 +638,8 @@
         SET [_pc_save_A + B], A
         SET PC, POP
 
+; move the _pc_getch label to the correct function
+:_pc_getch
 ; getch for a 16 byte ringbuffer
 :_pc_getch_16
         SET B, [0x9010]
@@ -650,8 +652,6 @@
         SET [0x9010], B
         SET PC, POP
 
-; move the _pc_getch label to the correct function
-:_pc_getch
 ; getch for dcpustudio
 :_pc_getch_dcpustud
         SET A, [0x9000]
