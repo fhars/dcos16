@@ -572,12 +572,12 @@
         XOR C, B
         XOR C, A
         SET A, [_pc_rand_hi]
-        SHL A, 11
-        BOR C, O
+        SHL A, 10
+        BOR A, O
         XOR A, C
         XOR A, B
         SET [_pc_rand_lo], C
-        SET [_pc_rand_hi], B
+        SET [_pc_rand_hi], A
         SET PC, POP
 
 :_pc_rand_lo
