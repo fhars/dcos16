@@ -83,6 +83,10 @@
          IFE A, 0x8000
          SET PC, _pc_next_free
 
+         ; mark as dumb terminal
+         SET [_pc_vidbufs + B], 0
+         SET [_pc_vidptrs + B], 0x8040
+
          ; now B contains the number of the next free slot
 
          ; store the PPID in _pc_tmp_C
@@ -285,6 +289,9 @@
 :yield
          SET [_pc_tmp_A], A
          SET A, [_pc_curr_proc]
+
+         SET [_pc_vidptrs + A], [_pc_vidmem]
+
          ; save register values of the yielding process
          MUL A, 10
          SET [_pc_save_A + A], [_pc_tmp_A]
@@ -326,9 +333,19 @@
          SET PUSH, A
 
          SET [_pc_vidbase], 0
+         SET [_pc_vidmem], [_pc_vidptrs + A]
          IFE [_pc_curr_proc], [_pc_screen_proc]
-           SET [_pc_vidbase], 0x8040
-           SET [_pc_vidend], 0x8200
+           SET PC, _pc_vid_curr
+         IFE [_pc_vidbufs + A], 0
+           SET PC, _pc_vid_done
+         SET [_pc_vidbase], [_pc_vidbufs + A]
+         SET [_pc_vidend], [_pc_vidbase]
+         ADD [_pc_vidend], 320
+         SET PC, _pc_vid_done
+:_pc_vid_curr
+         SET [_pc_vidbase], 0x8040
+         SET [_pc_vidend], 0x8180
+:_pc_vid_done
          SET A, POP
          MUL A, 10
 
@@ -593,6 +610,22 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+; uses the 320 byte buffer pointed to by A as video backing store
+; while the process doesn't have focus
+:reserve_screen
+        SET B, [_pc_curr_proc]
+        SET [_pc_vidbufs + B], A
+        SET [_pc_vidptrs + B], A
+        IFE B, [_pc_screen_proc]
+           SET PC, _pc_res_curr_screen
+        SET [_pc_vidbase], A
+        SET [_pc_vidmem], A
+        SET [_pc_vidend], A
+        ADD [_pc_vidend], 320
+        SET PC, POP
+:_pc_res_curr_screen
+        SET PC, POP
+
 ; One task of the keyboard handler is to allow the user to
 ; switch the display to another process.
 :_pc_kbd_handler
@@ -711,11 +744,36 @@
         JSR _pc_set_cell_hilit
         SET [_pc_screen_proc], Y
 
-        SET [_pc_vidbase], 0x8040
-        SET [_pc_vidmem], [_pc_vidbase]
-        JSR clear_screen
+        IFN [_pc_vidbufs + X], 0
+          JSR _pc_savescreen
+        IFE [_pc_vidbufs + Y], 0
+          SET PC, _pc_vid_dumb
 
+        SET B, [_pc_vidbufs + Y]
+        SET A, [_pc_vidptrs + Y]
+        SUB A, B
+        ADD A, 0x8040
+        SET [_pc_vidptrs + Y], A
+        SET A, 0x8040
+        SET C, 320
+        SET PC, memcpy
+
+:_pc_vid_dumb
+        SET [_pc_vidptrs + Y], 0x8040
+        SET [_pc_vidbase], 0x8040
+        SET [_pc_vidend], 0x8180
+        JSR clear_screen
         SET PC, POP
+
+:_pc_savescreen
+        SET A, [_pc_vidbufs + X]
+        SET B, [_pc_vidptrs + X]
+        SUB B, 0x8040
+        ADD B, A
+        SET [_pc_vidptrs + X], B
+        SET B, 0x8040
+        SET C, 320
+        SET PC, memcpy
 
 ; the PID of the process currently holding the screen
 :_pc_screen_proc DAT 0
@@ -724,9 +782,13 @@
 ; one character keyboard buffer for each process
 :_pc_kbd_buf ;RESERVE 0x10
              DAT 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+
+:_pc_vidbufs DAT 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+:_pc_vidptrs DAT 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+
 :_pc_vidbase DAT 0x8040
 :_pc_vidmem  DAT 0x8040
-:_pc_vidend  DAT 0x8200
+:_pc_vidend  DAT 0x8180
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1194,6 +1256,8 @@
         DAT "Type something here",0
 
 :read_test
+        set A, videobuf
+        jsr reserve_screen
         SET I, 0
 :rtloop
         ADD I, 1
@@ -1208,6 +1272,17 @@
         SET PC, rtloop
 
 :rlbuf  DAT 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+:videobuf ;RESERVE 320
+        DAT 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+        DAT 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+        DAT 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+        DAT 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+        DAT 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+        DAT 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+        DAT 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+        DAT 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+        DAT 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+        DAT 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 :show_foobar
         SET A, 1
         JSR set_interactive
