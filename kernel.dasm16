@@ -831,9 +831,13 @@
 :_pc_readl_l
         ADD X, 1
         SET C, [_pc_vidmem]
-        SET [C], 0xF0DF
+        AND [C], 0xFF00
+        IFE [C], 0
+          SET [C], 0xF000
+        BOR [C], 0xDF
         JSR readch
-        SET [C], 0xF020
+        AND [C], 0xFF00
+        BOR [C], 0x0020
         SET PUSH, A
         JSR printchar
         SET A, POP
