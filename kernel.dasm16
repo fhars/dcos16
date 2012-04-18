@@ -754,6 +754,43 @@
         AND [_pc_status + B], 0xBFFF
         SET PC, yield
 
+; read a line
+;
+; input A: the address of the read buffer
+; input B: the length of the read buffer (max. 32 incl. trailing null)
+:readline
+        SET PUSH, X
+        SET PUSH, Y
+        SET X, A
+        SUB X, 1
+        SET Y, B
+        IFG Y, 32
+          SET Y, 32
+:_pc_readl_l
+        ADD X, 1
+        SET C, [_pc_vidmem]
+        SET [C], 0xF0DF
+        JSR readch
+        SET [C], 0xF020
+        SET PUSH, A
+        JSR printchar
+        SET A, POP
+        IFE A, 0x0a
+          SET PC, _pc_readl_end
+        SET [X], A
+        SUB Y, 1
+        IFN Y, 0
+          SET PC, _pc_readl_l
+        JSR newline
+:_pc_readl_end
+        SET [X], 0
+        SET Y, POP
+        SET X, POP
+        SET PC, POP
+
+:_pc_readline_ptr
+        DAT 0
+
 :println ; shortcut
          jsr print
          jsr newline
@@ -1165,10 +1202,12 @@
         AND A, 0xFF
         IFN A, 0
           SET PC, rtloop
-        JSR readch
-        JSR printchar
+        SET A, rlbuf
+        SET B, 15
+        JSR readline
         SET PC, rtloop
 
+:rlbuf  DAT 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 :show_foobar
         SET A, 1
         JSR set_interactive
