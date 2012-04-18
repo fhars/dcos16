@@ -191,9 +191,11 @@ displayed on the screen below the status lines. That process is also
 said to "have focus". The user can cycle between the processes using
 tab (and, in some emulators, Pg_Up and Pg_Dn).
 
-The current implementation is quite primitive: everytime the user
-switches to the next process, the screen is cleared and output starts
-on the top of the screen.
+By default, everytime the user switches to the next process, the
+screen is cleared and output starts on the top of the
+screen. Alternatively, a process may register a 320 word buffer to use
+a a backing store that is uses for the video content while the process
+is not running.
 
 Key presses will be deliverd to the process that has the focus. dcos16
 stores one key per process, additional keys pressed before the
@@ -209,6 +211,13 @@ containing the characters in their lower seven bits.
 The output functions have no effect if the process does not have
 focus.
 
+register_screen
+---------------
+
+Call this method if the process should have a persistent video output
+even if it loses focus. The process must provide a 320 word buffer to
+store the video content.
+
 getch
 -----
 
@@ -221,6 +230,15 @@ readch
 ```readch``` performs a blocking read of the keyboard, returning
 either the last key pressed, suspending the process until a key has
 been presse if none is available.
+
+readline
+--------
+
+```readline``` reads a line of up to 32 characters (including the
+terminating zero) into the buffer pointed to by A, blocking until
+characters are available. B contains the length of the buffer. For
+```readline``` to be useful, the process must have reserved screen
+memory, as the effects are undefined otherwise.
 
 println
 -------
