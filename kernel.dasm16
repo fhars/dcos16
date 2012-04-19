@@ -822,7 +822,12 @@
 ; input B: the length of the read buffer (max. 32 incl. trailing null)
 :readline
         SET C, 0
-:readline_e
+; edit a line
+;
+; input A: the address of the read buffer
+; input B: the length of the read buffer (max. 32 incl. trailing null)
+; input C: the number of characters already in the buffer
+:editline
         SET PUSH, X
         SET PUSH, Y
         SET PUSH, Z
@@ -857,9 +862,11 @@
         IFE A, 0x0a
           SET PC, _pc_readl_end
         IFE A, 1
-          SET PC, _pc_readl_back
+          SET PC, _pc_readl_left
         IFE A, 2
-          SET PC, _pc_readl_fwd
+          SET PC, _pc_readl_right
+        IFE A, 8
+          SET PC, _pc_readl_backspace
         IFE Z, Y
           SET PC, _pc_readl_inner
         SET [Z], A
@@ -867,29 +874,60 @@
         SET PC, _pc_readl_l
 
 :_pc_readl_end
+        ADD Z, 1
+        IFN Z, I
+          SET PC, _pc_readl_end_innner
         SET A, [Y]
         AND A, 0x7F
         IFE A, 0
           SET A, 0x20
         JSR printchar
+:_pc_readl_end_innner
         SET I, POP
         SET Z, POP
         SET Y, POP
         SET X, POP
         SET PC, POP
 
-:_pc_readl_back
+:_pc_readl_left
+        IFN [Z], 0
+          SET PC, _pc_readl_left_i
+        SET A, 0x20 ; clean cursor if at end
+        JSR printchar
+        SUB [_pc_vidmem], 1
+: _pc_readl_left_i
         IFE Z, X
           SET PC, _pc_readl_inner
         SUB Z, 1
         SUB [_pc_vidmem], 1
         SET PC, _pc_readl_inner
-:_pc_readl_fwd
+:_pc_readl_right
         ADD Z, 1
         ADD [_pc_vidmem], 1
         IFN Z, I
           SET PC, _pc_readl_inner
-        SET PC, _pc_readl_back
+        SET PC, _pc_readl_left ; undo move if past last valid char
+:_pc_readl_backspace
+        IFE Z, X
+          SET PC, _pc_readl_inner
+        SUB I, 1
+        SET A, I
+        SUB A, Z
+        ADD A, [_pc_vidmem]
+        AND [A], 0xFF00
+        BOR [A], 0x20
+        SUB Z, 1
+        SUB [_pc_vidmem], 1
+        SET A, Z
+        SET B, [_pc_vidmem]
+:_pc_readl_back_l
+        SET [A], [1+A]
+        SET [B], [1+B]
+        ADD A, 1
+        ADD B, 1
+        IFN A, I
+          SET PC, _pc_readl_back_l
+        SET PC, _pc_readl_inner
 
 :_pc_readline_ptr
         DAT 0

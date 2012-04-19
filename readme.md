@@ -238,7 +238,18 @@ readline
 terminating zero) into the buffer pointed to by A, blocking until
 characters are available. B contains the length of the buffer. For
 ```readline``` to be useful, the process must have reserved screen
-memory, as the effects are undefined otherwise.
+memory, as the function directly modifies the screen buffer.
+
+```readline``` supports basic line editing using the left and right
+arrow keys and backspace.
+
+editline
+--------
+
+```editline``` is basically the same function as readline, except that
+it allows to put some text into the edit buffer and puts the insertion
+cursor at the end of that text. In addition to the parameters of
+```readline```, it expects the length of the existing text in C.
 
 println
 -------
