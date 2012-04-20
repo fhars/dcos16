@@ -566,10 +566,9 @@
         ADD SP, C
 
         AND C, 0x0f
+        SUB B, C
         XOR C, 0x0f
         ADD C, 1
-        ADD B, 16
-        SUB B, C
         SHL C, 1
         ADD PC, C
 :_pc_memcpy_r_loop

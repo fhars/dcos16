@@ -100,6 +100,16 @@
        JSR scroll_down
        SET PC, crash
 :cr_2
+       IFN A, 3
+         SET PC, cr_3
+       SET A, [_pc_vidbase]
+       SET B, A
+       ADD B, 23
+       SET C, 12
+       JSR memcpy_rev
+       SET PC, crash
+
+:cr_3
        IFN A, 0
          JSR printchar
        SET B, I
