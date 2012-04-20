@@ -5,6 +5,10 @@ The dcos16 kernel for <a href="http://twitter.com/#!/notch">Notch</a>'s
 <a href="http://0x10c.com/doc/dcpu-16.txt">DCPU16 processor</a> manages up to 16
 cooperative processes with a very simple round robin scheduler.
 
+The source is split over several files, the script build_sources.sh
+concatenates them to files that can be assembled with most assemblers.
+It has mostly been tested wth dcpustudio.
+
 New processes are started with the ```JSR fork``` call described
 below.  Every process is reponsible for not writing over the other
 processes memory and to call ```JSR yield``` at appropriate times to
@@ -15,8 +19,6 @@ overflowing it. The process local stack is initialized with a pointer
 to the exit routine at the top, so a process can exit with ```SET PC,
 POP``` like any normal subroutine, or it can explicitly call
 ```exit``` if it wants to terminate when the stack is not empty.
-
-The code has been tested in dcpustudio.
 
 The license is MIT as that is the first well known open source license I
 found that did in fact exist in 1988 (GPL v1 is 1989).
@@ -267,8 +269,13 @@ prints the character in A.
 
 newline
 -------
-Starts a new line
+Starts a new line.
+
+position
+--------
+Puts the output cursor in row A of column B.
 
 clear_screen
 ------------
 Clears the screen.
+

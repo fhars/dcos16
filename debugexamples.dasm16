@@ -1,0 +1,216 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;;  EXAMPLE AND DEBUG CODE
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+:foo    DAT 0xFFFF
+:db     DAT 0
+:foo2   DAT 0xFFFF
+:pid    DAT 0
+:pid2   DAT 0
+:init   SET X, 1
+        SET A, 0x06
+        JSR status_color
+:loop1 set Y, 0
+       SET A, count4
+       SET B, 1
+       JSR fork
+       SET [pid], A
+       SET Z, A
+
+:loop2 SET A, [pid]
+       ADD [db], 1
+       SET B, 1
+       ADD Y, 1
+       ADD [db], 0x10
+       JSR yield
+       ADD [db], 0x10
+       JSR wait
+       IFN B,0
+       SET PC, loop2
+       ADD X, 1
+       ADD [db], 0x100
+       IFG 4, X
+       SET PC, loop1
+
+
+       SET [CC], 0
+       SET X, 0
+       SET Y, 0
+       SET A, count4
+       SET B, 2
+       JSR fork
+       SET X,1
+
+       SET [db], 0xC000
+
+       SET A, fact
+       SET B, 1
+       SET X, 6
+       JSR fork
+       SET [pid], A
+       SET A, fact_col
+       SET Z, A
+       SET B, 1
+       SET X, 8
+       JSR fork
+       SET [pid2], A
+
+       SET A, show_foobar
+       SET B, 0
+       JSR fork
+
+       SET A, show_random
+       SET B, 0
+       JSR fork
+
+:loop3 SET A, [pid]
+       SET B, 1
+       ADD Y, 1
+       JSR yield
+       JSR wait
+       IFN B,0
+       SET PC, loop3
+
+       SET Y, 0
+:loop4 JSR yield
+       SET A, [pid2]
+       SET B, 1
+       ADD Y, 1
+       JSR wait
+       IFN B,0
+       SET PC, loop4
+
+       SET A, read_test
+       SET B, 0
+       JSR fork
+
+; the end is an endless loop
+       SET A, type_text
+       JSR println
+       SET I, 0
+:crash SET A, I
+       JSR yield
+       JSR getch
+       IFN A, 4
+         SET PC, cr_2
+       JSR scroll_down
+       SET PC, crash
+:cr_2
+       IFN A, 0
+         JSR printchar
+       SET B, I
+       AND B, 0x0fff
+       SET A, 1
+       IFE B, 0
+         JSR status_blink
+       ADD I, 1
+       SET PC, crash
+:type_text
+        DAT "Type something here",0
+
+:read_test
+        set A, videobuf
+        jsr reserve_screen
+        SET I, 0
+:rtloop
+        ADD I, 1
+        SET A, I
+        JSR yield
+        AND A, 0xFF
+        IFN A, 0
+          SET PC, rtloop
+        SET A, rlbuf
+        SET B, 15
+        JSR readline
+        SET A, 0x0A
+        JSR printchar
+        SET A, 0x20
+        JSR printchar
+        SET A, rlbuf
+        JSR println
+        SET PC, rtloop
+
+:rlbuf  DAT 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+:videobuf ;RESERVE 320
+        DAT 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+        DAT 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+        DAT 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+        DAT 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+        DAT 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+        DAT 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+        DAT 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+        DAT 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+        DAT 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+        DAT 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+:show_foobar
+        SET A, 1
+        JSR set_interactive
+:show_foobar1
+        SET A, lbl_foo
+        JSR status_string
+        SET A, lbl_foo
+        JSR println
+        SET B, 100
+        SUB B, 1
+        JSR yield
+        IFN B, 0
+          SUB PC, 5
+        SET A, lbl_bar
+        JSR status_string
+        SET A, lbl_bar
+        JSR println
+        SET B, 100
+        SUB B, 1
+        JSR yield
+        IFN B, 0
+          SUB PC, 5
+        SET PC, show_foobar1
+
+:lbl_foo
+        DAT "foo "
+:lbl_bar
+        DAT "bar ", 0x0
+
+:show_random
+        JSR random
+        JSR status_i2hex
+        SET A, 300
+:_sr
+        JSR yield
+        SUb A, 1
+        IFN A, 0
+          SET PC, _sr
+        SET PC, show_random
+
+:count4 SET I, 0
+:loopc  SET A, I
+        JSR yield
+        ADD I, 1
+        ADD [CC], 1
+        SET J, [CC]
+        IFG I, 3
+        SET PC, POP
+        SET PC, loopc
+
+:fact_col
+        SET A, 0x34
+        JSR status_color
+:fact
+        SET A, X
+        JSR fact_rec
+        SET PC, POP
+:fact_rec
+        JSR yield
+        IFE A, 1
+        SET PC, POP
+        SET PUSH, A
+        SUB A, 1
+        JSR fact_rec
+        MUL A, POP
+        JSR yield
+        SET PC, POP
+:cc DAT 0
