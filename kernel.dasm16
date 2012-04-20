@@ -549,6 +549,56 @@
         SET PC, POP
 
 
+; copy C words starting at A from  B
+;
+; If the memory areas overlap, the routine will only work
+; if the target address is higher than the source address
+;
+; input A: target address
+; input B: source address
+; input C: number of words to copy
+:memcpy_rev
+        SET PUSH, X
+        SET X, SP
+
+        ADD B, C
+        SET SP, A
+        ADD SP, C
+
+        AND C, 0x0f
+        XOR C, 0x0f
+        ADD C, 1
+        ADD B, 16
+        SUB B, C
+        SHL C, 1
+        ADD PC, C
+:_pc_memcpy_r_loop
+        SET PUSH, [15 + B]
+        SET PUSH, [14 + B]
+        SET PUSH, [13 + B]
+        SET PUSH, [12 + B]
+        SET PUSH, [11 + B]
+        SET PUSH, [10 + B]
+        SET PUSH, [9 + B]
+        SET PUSH, [8 + B]
+        SET PUSH, [7 + B]
+        SET PUSH, [6 + B]
+        SET PUSH, [5 + B]
+        SET PUSH, [4 + B]
+        SET PUSH, [3 + B]
+        SET PUSH, [2 + B]
+        SET PUSH, [1 + B]
+        SET PUSH, [0 + B]
+
+        SUB B, 16
+        IFN SP, A
+        SET PC, _pc_memcpy_r_loop
+
+        SET SP, X
+        SET X, POP
+        SET PC, POP
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -994,6 +1044,26 @@
         set A, POP
         set pc, pop
 
+:scroll_down
+       SET PUSH, [_pc_vidmem]
+       SET PUSH, X
+       SET A, [_pc_vidbase]
+       SET B, A
+       ADD A, 32
+       SET C, 288
+       JSR memcpy_rev
+       SET [_pc_vidmem], [_pc_vidbase]
+       SET X, 32
+:_pc_scroll_dn_l
+       SET A, 0x20
+       JSR printchar
+       SUB X, 1
+       IFN X, 0
+         SET PC, _pc_scroll_dn_l
+       SET X, POP
+       SET [_pc_vidmem], pop
+       SET PC, POP
+
 :clear_screen
         SET A, [_pc_vidbase]
         SET C, [_pc_vidend]
@@ -1323,6 +1393,11 @@
 :crash SET A, I
        JSR yield
        JSR getch
+       IFN A, 4
+         SET PC, cr_2
+       JSR scroll_down
+       SET PC, crash
+:cr_2
        IFN A, 0
          JSR printchar
        SET B, I
